@@ -22,7 +22,9 @@ export default function GenerateRoom() {
   }
 
   const startChat = () => {
-    router.push(`/chat/${roomCode}?nickname=${encodeURIComponent(nickname)}`)
+    if (roomCode) {
+      router.push(`/chat/${roomCode}?nickname=${encodeURIComponent(nickname)}`)
+    }
   }
 
   return (
@@ -56,4 +58,3 @@ export default function GenerateRoom() {
     </div>
   )
 }
-
