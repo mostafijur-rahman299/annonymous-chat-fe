@@ -10,19 +10,34 @@ export default function GenerateRoom() {
   const [roomCode, setRoomCode] = useState('')
   const [nickname, setNickname] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
   const router = useRouter()
 
-  const generateCode = () => {
+  const startChat = async () => {
     setLoading(true)
-    setTimeout(() => {
-      setRoomCode(Math.random().toString(36).substring(2, 8).toUpperCase())
-      setLoading(false)
-    }, 1000)
-  }
+    setError(null)
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat-api/create-room/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        room_code: roomCode,
+        nickname: nickname,
+      }),
+    })
 
-  const startChat = () => {
-    if (roomCode) {
-      router.push(`/chat/${roomCode}?nickname=${encodeURIComponent(nickname)}`)
+    if (response.ok) {
+      const data = await response.json()
+      router.push(`/chat/${data.roomCode}?nickname=${encodeURIComponent(nickname)}`)
+      setError(null)
+      setLoading(false)
+    } else {
+      const errorData = await response.json()
+      setError(errorData.error)
+      setLoading(false)
     }
   }
 
@@ -30,23 +45,8 @@ export default function GenerateRoom() {
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-r from-blue-500 via-teal-500 to-green-400">
       <h1 className="text-5xl font-extrabold mb-10 text-center">Create Your Chat Room</h1>
       <div className="space-y-8 w-full max-w-lg bg-white p-8 rounded-lg shadow-xl">
-        <Button 
-          onClick={generateCode} 
-          disabled={loading} 
-          className="w-full py-4 text-lg font-semibold rounded-md bg-gradient-to-r from-blue-500 to-green-500 text-white">
-          {loading ? 'Generating Room Code...' : 'Generate Room Code'}
-        </Button>
-
-        {roomCode && (
-          <div className="bg-gray-100 p-6 rounded-lg text-center shadow-md">
-            <p className="text-4xl font-extrabold text-gray-900 mb-4">{roomCode}</p>
-            <Button 
-              onClick={() => navigator.clipboard.writeText(roomCode)} 
-              className="w-full py-3 bg-gradient-to-r from-blue-500 to-green-500 text-white font-medium rounded-md">
-              Copy Room Code
-            </Button>
-          </div>
-        )}
+        
+        
 
         <div className="space-y-4">
           <Label htmlFor="nickname" className="text-lg font-medium text-gray-700">Enter Your Nickname (Optional)</Label>
@@ -55,19 +55,31 @@ export default function GenerateRoom() {
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             placeholder="Type your nickname here..."
-            className="w-full py-3 px-4 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            className={`w-full py-3 px-4 rounded-md border ${
+              error?.nickname ? 'border-red-500' : 'border-gray-300'
+            } focus:ring-2 focus:ring-blue-500 focus:outline-none`}
           />
+          {error?.nickname && <p className="text-red-500">{error.nickname}</p>}
         </div>
 
+        <div className="space-y-4">
+          <Label htmlFor="nickname" className="text-lg font-medium text-gray-700">Enter Your Room Code (Optional)</Label>
+          <Input
+            id="nickname"
+            value={roomCode}
+            onChange={(e) => setRoomCode(e.target.value?.toUpperCase())}
+            placeholder="Type your room code here..."
+            
+            className={`w-full py-3 px-4 rounded-md border ${
+              error?.room_code ? 'border-red-500' : 'border-gray-300'
+            } focus:ring-2 focus:ring-blue-500 focus:outline-none`}
+          />  
+          {error?.room_code && <p className="text-red-500">{error.room_code}</p>}
+        </div>
         <Button 
           onClick={startChat} 
-          disabled={!roomCode} 
-          className={`w-full py-4 text-lg font-semibold rounded-md text-white ${
-            roomCode
-              ? 'bg-gradient-to-r from-green-500 to-blue-500'
-              : 'bg-gray-400 cursor-not-allowed'
-          }`}>
-          Start Chat
+          className={`w-full py-4 text-lg font-semibold rounded-md text-white bg-gradient-to-r from-green-500 to-blue-500`}>
+          {loading ? 'Loading...' : 'Start Chat'}
         </Button>
       </div>
 
