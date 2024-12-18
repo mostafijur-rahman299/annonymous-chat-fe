@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { cn } from '@/lib/utils'
 
 export default function JoinRoom() {
   const [roomCode, setRoomCode] = useState('')
@@ -14,18 +15,46 @@ export default function JoinRoom() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const joinChat = () => {
-    setLoading(true)
-    setError('')
-    // Simulate API call to check room code
-    setTimeout(() => {
-      if (roomCode.length !== 6) {
-        setError('Invalid room code. Please try again.')
+  const joinChat = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+  
+        // Ensure the environment variable is set and log it for debugging
+        if (!process.env.NEXT_PUBLIC_API_URL) {
+          throw new Error('API URL is not configured. Please check your environment variables.')
+        }
+  
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/chat-api/join-room/`
+        console.log('API URL:', apiUrl) // Log the URL to verify it's correct
+  
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            room_code: roomCode,
+            nickname: nickname,
+          }),
+        })
+  
+        if (!response.ok) {
+          // If the response is not okay, parse and display the error message if available
+          const errorData = await response.json()
+          setError(errorData?.error)
+          return
+        }
+  
+        const data = await response.json()
+        router.push(`/chat/${data?.data?.room_code}?nickname=${encodeURIComponent(data?.data?.nickname)}`)
+      } catch (err) {
+        setError({
+          "general": "Something went wrong. Please try again later.",
+        })
+      } finally {
         setLoading(false)
-      } else {
-        router.push(`/chat/${roomCode}?nickname=${encodeURIComponent(nickname)}`)
       }
-    }, 1000)
   }
 
   return (
@@ -39,9 +68,11 @@ export default function JoinRoom() {
             value={roomCode}
             onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
             placeholder="Enter room code"
-            maxLength={6}
-            className="border-2 border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-purple-500"
+            className={cn("border-2", error?.room_code ? 'border-red-500' : 'border-gray-300', "rounded-md p-2 focus:ring-2 focus:ring-purple-500")}
           />
+          {error?.room_code && (
+              <p className="text-red-500">{error?.room_code}</p>
+          )}
         </div>
         <div className="space-y-4">
           <Label htmlFor="nickname" className="text-lg font-medium text-gray-700">Nickname (optional)</Label>
@@ -50,12 +81,15 @@ export default function JoinRoom() {
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             placeholder="Enter a nickname"
-            className="border-2 border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-purple-500"
+            className={cn("border-2", error?.nickname ? 'border-red-500' : 'border-gray-300', "rounded-md p-2 focus:ring-2 focus:ring-purple-500")}
           />
+          {error?.nickname && (
+            <p className="text-red-500">{error?.nickname}</p>
+          )}
         </div>
-        {error && (
+        {error?.general && (
           <Alert variant="destructive" className="bg-red-600 text-white p-4 rounded-md">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{error?.general}</AlertDescription>
           </Alert>
         )}
         <Button 
