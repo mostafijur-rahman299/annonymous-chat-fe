@@ -40,21 +40,26 @@ export default function GenerateRoom() {
 
       if (!response.ok) {
         // If the response is not okay, parse and display the error message if available
-        const errorData = await response.json().catch(() => null) // Fallback for non-JSON responses
-        const errorMessage = errorData?.error || `Server error: ${response.status} ${response.statusText}`
-        throw new Error(errorMessage)
+        const errorData = await response.json()
+        setError(errorData?.error)
+        return
       }
 
-      const data = await response.json()
-      router.push(`/chat/${data?.data?.room_code}?nickname=${encodeURIComponent(data?.data?.nickname)}`)
+      let data = await response.json()
+      data = data?.data
+      // add data to local storage
+      localStorage.setItem(`${data?.room_code}`, JSON.stringify({
+        nickname: data?.nickname,
+        participant_id: `${data?.participant_id}`,
+        role: data?.role,
+      }))
+
+      router.push(`/chat/${data?.room_code}?nickname=${encodeURIComponent(data?.nickname)}`)
+
     } catch (err) {
-      // Handle known and fallback errors
-      if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-        setError('Unable to connect to the server. Please check your internet connection or try again later.')
-      } else {
-        // Show a fallback message for unexpected errors
-        setError('Something went wrong. Please try again later.')
-      }
+      setError({
+        general: "Something went wrong. Please try again later.",
+      })
     } finally {
       setLoading(false)
     }
@@ -64,7 +69,7 @@ export default function GenerateRoom() {
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-r from-blue-500 via-teal-500 to-green-400">
       <h1 className="text-5xl font-extrabold mb-10 text-center">Create Your Chat Room</h1>
       <div className="space-y-8 w-full max-w-lg bg-white p-8 rounded-lg shadow-xl">
-        {error && <p className="text-red-500 text-center">{error}</p>} {/* Show error message */}
+        {error?.general && <p className="text-red-500 text-center">{error?.general}</p>} {/* Show error message */}
 
         <div className="space-y-4">
           <Label htmlFor="nickname" className="text-lg font-medium text-gray-700">
@@ -76,7 +81,7 @@ export default function GenerateRoom() {
             onChange={(e) => setNickname(e.target.value)}
             placeholder="Type your nickname here..."
             className={`w-full py-3 px-4 rounded-md border ${
-              error ? 'border-red-500' : 'border-gray-300'
+              error?.nickname ? 'border-red-500' : 'border-gray-300'
             } focus:ring-2 focus:ring-blue-500 focus:outline-none`}
           />
         </div>
@@ -91,9 +96,10 @@ export default function GenerateRoom() {
             onChange={(e) => setRoomCode(e.target.value?.toUpperCase())}
             placeholder="Type your room code here..."
             className={`w-full py-3 px-4 rounded-md border ${
-              error ? 'border-red-500' : 'border-gray-300'
+              error?.room_code ? 'border-red-500' : 'border-gray-300'
             } focus:ring-2 focus:ring-blue-500 focus:outline-none`}
           />
+          {error?.room_code && <p className="text-red-500">{error?.room_code}</p>}
         </div>
         <Button
           onClick={startChat}

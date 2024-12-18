@@ -26,7 +26,6 @@ export default function JoinRoom() {
         }
   
         const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/chat-api/join-room/`
-        console.log('API URL:', apiUrl) // Log the URL to verify it's correct
   
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -46,8 +45,17 @@ export default function JoinRoom() {
           return
         }
   
-        const data = await response.json()
-        router.push(`/chat/${data?.data?.room_code}?nickname=${encodeURIComponent(data?.data?.nickname)}`)
+        let data = await response.json()
+        data = data?.data
+
+        // add data to local storage
+        localStorage.setItem(`${data?.room_code}`, JSON.stringify({
+          nickname: data?.nickname,
+          participant_id: `${data?.participant_id}`,
+          role: data?.role,
+        }))
+
+        router.push(`/chat/${data?.room_code}?nickname=${encodeURIComponent(data?.nickname)}`)
       } catch (err) {
         setError({
           "general": "Something went wrong. Please try again later.",

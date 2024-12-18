@@ -5,14 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send } from "lucide-react";
 
-export default function InputArea({ setMessages, nickname }) {
+export default function InputArea({ setMessages, nickname, roomCode }) {
     const [input, setInput] = useState("");
+    const roomData = JSON.parse(localStorage.getItem(`${roomCode}`));
 
     const sendMessage = () => {
         if (input.trim()) {
             const newMessage = {
                 id: Date.now().toString(),
-                sender_nickname: nickname,
+                sender: {
+                    id: roomData.participant_id,
+                    nickname: nickname,
+                    role: roomData.role,
+                },
                 message_text: input.trim(),
                 created_at: new Date().toISOString(),
             };

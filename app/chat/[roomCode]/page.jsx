@@ -49,7 +49,7 @@ export default function ChatRoom() {
                     roomCode={params.roomCode}
                 />
 
-                <InputArea setMessages={setMessages} nickname={nickname} />
+                <InputArea setMessages={setMessages} nickname={nickname} roomCode={params.roomCode} />
 
                 <ExitRoom
                     showExitDialog={showExitDialog}

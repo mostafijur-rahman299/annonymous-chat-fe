@@ -12,6 +12,7 @@ export default function Messages({
     roomCode,
 }) {
     const scrollAreaRef = useRef(null);
+    const roomData = JSON.parse(localStorage.getItem(`${roomCode}`));
 
     const scrollToBottom = () => {
         if (scrollAreaRef.current) {
@@ -61,7 +62,7 @@ export default function Messages({
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={`mb-3 p-3 rounded-lg ${
-                        message.sender_nickname === nickname
+                        message.sender.id === roomData.participant_id
                             ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white ml-auto"
                             : "bg-white/80 dark:bg-gray-700/80 shadow-md backdrop-blur-sm"
                     } max-w-[80%] break-words`}
@@ -69,25 +70,25 @@ export default function Messages({
                     <div className="flex items-start">
                         <Avatar className="h-8 w-8 mr-2 ring-2 ring-white dark:ring-gray-800">
                             <AvatarImage
-                                src={`https://api.dicebear.com/6.x/initials/svg?seed=${message.sender_nickname}`}
+                                src={`https://api.dicebear.com/6.x/initials/svg?seed=${message.sender.nickname}`}
                             />
                             <AvatarFallback>
-                                {message.sender_nickname.slice(0, 2)}
+                                {message.sender.nickname.slice(0, 2)}
                             </AvatarFallback>
                         </Avatar>
                         <div>
                             <p
                                 className={`font-bold ${
-                                    message.sender_nickname === nickname
+                                    message.sender.id === roomData.participant_id
                                         ? "text-white"
                                         : "text-purple-600 dark:text-purple-400"
                                 }`}
                             >
-                                {message.sender_nickname}
+                                {message.sender.nickname}
                             </p>
                             <p
                                 className={
-                                    message.sender_nickname === nickname
+                                    message.sender.id === roomData.participant_id
                                         ? "text-white"
                                         : "text-gray-800 dark:text-gray-200"
                                 }
@@ -96,7 +97,7 @@ export default function Messages({
                             </p>
                             <p
                                 className={`text-xs ${
-                                    message.sender_nickname === nickname
+                                    message.sender.id === roomData.participant_id
                                         ? "text-white/80"
                                         : "text-gray-500 dark:text-gray-400"
                                 } mt-1`}
