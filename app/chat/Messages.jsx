@@ -7,14 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Check, Clock } from "lucide-react";
 import DOMPurify from "dompurify";
 
-export default function Messages({
-    messages,
-    setMessages,
-    nickname,
-    roomCode,
-}) {
+export default function Messages({ messages, setMessages, roomCode, socket }) {
     const scrollAreaRef = useRef(null);
     const [roomLocalData, setRoomLocalData] = useState(null);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -22,6 +18,48 @@ export default function Messages({
             setRoomLocalData(roomData);
         }
     }, [roomCode]);
+
+    const isAtBottom = () => {
+        if (!scrollAreaRef.current) return false;
+        const scrollContainer = scrollAreaRef.current.querySelector(
+            "[data-radix-scroll-area-viewport]"
+        );
+        if (!scrollContainer) return false;
+
+        const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+        return Math.abs(scrollTop + clientHeight - scrollHeight) < 312; // Adjust threshold
+    };
+
+    useEffect(() => {
+        if (socket) {
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.sender.id !== roomLocalData.participant_id) {
+                    setMessages((prevMessages) => [...prevMessages, data]);
+                    console.log(isAtBottom());
+                    if (isAtBottom()) {
+                        setTimeout(() => {
+                            scrollToBottom();
+                        }, 100);
+                    }
+                } else {
+                    setMessages((prevMessages) => {
+                        const updatedMessages = prevMessages.map((message) =>
+                            message.id === data.message_tmp_id
+                                ? {
+                                      ...message,
+                                      id: data.id,
+                                      status: data.status,
+                                  }
+                                : message
+                        );
+                        return updatedMessages;
+                    });
+                    scrollToBottom();
+                }
+            };
+        }
+    }, [socket, roomLocalData]);
 
     const scrollToBottom = () => {
         if (scrollAreaRef.current) {
@@ -38,12 +76,10 @@ export default function Messages({
     };
 
     useEffect(() => {
-        scrollToBottom();
-    }, []);
-
-    useEffect(() => {
-        if (messages.length > 0) {
+        if (messages.length > 0 && isInitialLoad) {
+            // Scroll to bottom on initial load for everyone
             scrollToBottom();
+            setIsInitialLoad(false); // Set to false after the initial load
         }
     }, [messages]);
 
@@ -103,9 +139,9 @@ export default function Messages({
                                             : "text-purple-600 dark:text-purple-400"
                                     }`}
                                 >
-                                    {message.sender.nickname}{" "}
+                                    {message.sender.nickname}
                                     {message.sender.role === "host" ? (
-                                        <span className="text-xs text-gray-200 dark:text-gray-400">
+                                        <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
                                             (Host)
                                         </span>
                                     ) : (
@@ -116,9 +152,9 @@ export default function Messages({
                                     roomLocalData?.participant_id && (
                                     <span className="text-xs">
                                         {message.status === "delivered" ? (
-                                            <Check className="w-4 h-4 text-green-500" />
+                                            <Check className="w-4 h-4 text-green-200" />
                                         ) : (
-                                            <Clock className="w-4 h-4 text-yellow-500" />
+                                            <Clock className="w-4 h-4 text-yellow-200" />
                                         )}
                                     </span>
                                 )}

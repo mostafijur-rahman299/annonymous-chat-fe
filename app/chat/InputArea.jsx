@@ -2,50 +2,59 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Send } from 'lucide-react';
+import { Send } from "lucide-react";
 
-export default function InputArea({ setMessages, nickname, roomCode, socket }) {
+export default function InputArea({
+    setMessages,
+    roomCode,
+    socket,
+}) {
     const [input, setInput] = useState("");
     const [roomLocalData, setRoomLocalData] = useState(null);
     const textareaRef = useRef(null);
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const roomLocalData = JSON.parse(localStorage.getItem(`${roomCode}`));
+        if (typeof window !== "undefined") {
+            const roomLocalData = JSON.parse(
+                localStorage.getItem(`${roomCode}`)
+            );
             setRoomLocalData(roomLocalData);
         }
     }, [roomCode]);
 
     const adjustTextareaHeight = (element) => {
-        element.style.height = 'auto';
-        element.style.height = Math.min(element.scrollHeight, 5 * 24) + 'px';
+        element.style.height = "auto";
+        element.style.height = Math.min(element.scrollHeight, 5 * 24) + "px";
     };
 
     const resetTextareaHeight = (element) => {
-        element.style.height = 'auto';
+        element.style.height = "auto";
     };
 
     const sendMessage = () => {
         if (input.trim()) {
             if (socket && socket.readyState === WebSocket.OPEN) {
+                const message_tmp_id = "new-msg-" + Date.now().toString();
                 const messageData = {
                     message: input.trim(),
+                    message_tmp_id: message_tmp_id,
                 };
 
                 const newMessage = {
-                    id: "new-msg-" + Date.now().toString(),
+                    id: message_tmp_id,
                     message_text: input.trim(),
                     created_at: new Date().toLocaleTimeString(),
+                    status: "pending",
                     sender: {
                         id: roomLocalData.participant_id,
-                        nickname: nickname,
+                        nickname: roomLocalData.nickname,
                         role: roomLocalData.role,
                     }
                 };
                 setMessages((prevMessages) => [...prevMessages, newMessage]);
                 setInput("");
                 socket.send(JSON.stringify(messageData));
-                
+
                 // Reset textarea height
                 if (textareaRef.current) {
                     resetTextareaHeight(textareaRef.current);
@@ -89,4 +98,3 @@ export default function InputArea({ setMessages, nickname, roomCode, socket }) {
         </div>
     );
 }
-

@@ -9,7 +9,6 @@ import ExitRoom from "@/app/chat/ExitRoom";
 
 export default function ChatRoom() {
     const [messages, setMessages] = useState([]);
-    const [nickname, setNickname] = useState("");
     const [showExitDialog, setShowExitDialog] = useState(false);
     const [members, setMembers] = useState({});
     const [socket, setSocket] = useState(null);
@@ -21,12 +20,6 @@ export default function ChatRoom() {
     useEffect(() => {
         const participant = JSON.parse(localStorage.getItem(params.roomCode));
         setRoomData(participant);
-    }, []);
-
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const nick = urlParams.get("nickname");
-        setNickname(nick);
     }, []);
 
     useEffect(() => {
@@ -62,10 +55,6 @@ export default function ChatRoom() {
                     retryCount = 0;
                 };
 
-                chatSocket.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                };
-
                 chatSocket.onclose = () => {
                     console.log("WebSocket disconnected");
                     setIsDisconnected(true);
@@ -84,6 +73,7 @@ export default function ChatRoom() {
 
         connectWebSocket();
     }, [params.roomCode, roomData.participant_id]);
+    
 
     return (
         <div className="flex flex-col h-screen bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-gray-900 dark:to-indigo-900 overflow-hidden px-4 py-2 sm:px-6 sm:py-4">
@@ -103,14 +93,13 @@ export default function ChatRoom() {
                 <Messages
                     messages={messages}
                     setMessages={setMessages}
-                    nickname={nickname}
                     roomCode={params.roomCode}
+                    socket={socket}
                 />
 
                 <div className="sticky bottom-0">
                     <InputArea
                         setMessages={setMessages}
-                        nickname={nickname}
                         roomCode={params.roomCode}
                         socket={socket}
                     />
