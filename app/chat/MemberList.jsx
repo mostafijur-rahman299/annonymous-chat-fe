@@ -16,7 +16,8 @@ export default function MembersList({ members }) {
                             />
                             <AvatarFallback>{members[member].nickname.slice(0, 2)}</AvatarFallback>
                         </Avatar>
-                        {members[member].nickname} {members[member].role === 'host' ? '(Host)' : ''}
+                        {members[member].nickname} {members[member].role === 'host' ? 
+                        <span className="text-xs text-gray-800 dark:text-gray-400 ml-1">(Host)</span> : ''}
                     </li>
                 ))}
             </ul>
