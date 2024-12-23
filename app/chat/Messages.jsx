@@ -4,13 +4,16 @@ import { useRef, useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Check, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Check, Clock, Copy } from 'lucide-react';
 import DOMPurify from "dompurify";
 
 export default function Messages({ messages, setMessages, roomCode, socket }) {
     const scrollAreaRef = useRef(null);
     const [roomLocalData, setRoomLocalData] = useState(null);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [copiedMessageId, setCopiedMessageId] = useState(null);
+    const [hoveredMessageId, setHoveredMessageId] = useState(null);
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -77,9 +80,8 @@ export default function Messages({ messages, setMessages, roomCode, socket }) {
 
     useEffect(() => {
         if (messages.length > 0 && isInitialLoad) {
-            // Scroll to bottom on initial load for everyone
             scrollToBottom();
-            setIsInitialLoad(false); // Set to false after the initial load
+            setIsInitialLoad(false);
         }
     }, [messages]);
 
@@ -98,6 +100,13 @@ export default function Messages({ messages, setMessages, roomCode, socket }) {
     useEffect(() => {
         fetchMessages();
     }, [roomCode]);
+
+    const copyMessageToClipboard = (messageId, messageText) => {
+        navigator.clipboard.writeText(messageText).then(() => {
+            setCopiedMessageId(messageId);
+            setTimeout(() => setCopiedMessageId(null), 2000);
+        });
+    };
 
     return (
         <ScrollArea
@@ -118,7 +127,9 @@ export default function Messages({ messages, setMessages, roomCode, socket }) {
                         message.sender.id === roomLocalData?.participant_id
                             ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white ml-auto"
                             : "bg-white/80 dark:bg-gray-700/80 shadow-md backdrop-blur-sm"
-                    } max-w-[80%] break-words`}
+                    } max-w-[80%] break-words relative`}
+                    onMouseEnter={() => setHoveredMessageId(message.id)}
+                    onMouseLeave={() => setHoveredMessageId(null)}
                 >
                     <div className="flex items-start">
                         <Avatar className="h-8 w-8 mr-2 ring-2 ring-white dark:ring-gray-800">
@@ -141,23 +152,13 @@ export default function Messages({ messages, setMessages, roomCode, socket }) {
                                 >
                                     {message.sender.nickname}
                                     {message.sender.role === "host" ? (
-                                        <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
+                                        <span className="ml-1 text-xs text-gray-300 dark:text-gray-400">
                                             (Host)
                                         </span>
                                     ) : (
                                         ""
                                     )}
                                 </p>
-                                {message.sender.id ===
-                                    roomLocalData?.participant_id && (
-                                    <span className="text-xs">
-                                        {message.status === "delivered" ? (
-                                            <Check className="w-4 h-4 text-green-200" />
-                                        ) : (
-                                            <Clock className="w-4 h-4 text-yellow-200" />
-                                        )}
-                                    </span>
-                                )}
                             </div>
                             <p
                                 className={
@@ -178,21 +179,50 @@ export default function Messages({ messages, setMessages, roomCode, socket }) {
                                 />
                             </p>
                             <div className="flex justify-between items-center mt-1">
-                                <p
-                                    className={`text-xs ${
-                                        message.sender.id ===
-                                        roomLocalData?.participant_id
-                                            ? "text-white/80"
-                                            : "text-gray-500 dark:text-gray-400"
-                                    }`}
-                                >
-                                    {message?.created_at}
-                                </p>
+                                <div className="flex items-center space-x-2">
+                                    <p
+                                        className={`text-xs ${
+                                            message.sender.id === roomLocalData?.participant_id
+                                                ? "text-white/80"
+                                                : "text-gray-500 dark:text-gray-400"
+                                        }`}
+                                    >
+                                        {message?.created_at}
+                                    </p>
+                                    {message.sender.id === roomLocalData?.participant_id && (
+                                        <span className="text-xs">
+                                            {message.status === "delivered" ? (
+                                                <Check className="w-4 h-4 text-green-200" />
+                                            ) : (
+                                                <Clock className="w-4 h-4 text-yellow-200" />
+                                            )}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
+                    {hoveredMessageId === message.id && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyMessageToClipboard(message.id, message.message_text)}
+                            className={`p-1 absolute bottom-2 right-2 ${
+                                message.sender.id === roomLocalData?.participant_id
+                                    ? "hover:bg-white/10 text-white"
+                                    : "hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300"
+                            }`}
+                        >
+                            {copiedMessageId === message.id ? (
+                                <Check className="h-4 w-4" />
+                            ) : (
+                                <Copy className="h-4 w-4" />
+                            )}
+                        </Button>
+                    )}
                 </motion.div>
             ))}
         </ScrollArea>
     );
 }
+
