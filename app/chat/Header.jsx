@@ -4,10 +4,11 @@ import { useState } from "react";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, LogOut, Hash, Copy, Check, Menu, Eraser } from 'lucide-react';
+import { Users, LogOut, Hash, Copy, Check, Menu, Eraser, Clock } from 'lucide-react';
 import MembersList from "@/app/chat/MemberList";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function Header({ members, roomCode, roomData, setShowExitDialog }) {
+export default function Header({ members, roomCode, roomData, setShowExitDialog, onExpirationChange }) {
     const [copied, setCopied] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -59,6 +60,21 @@ export default function Header({ members, roomCode, roomData, setShowExitDialog 
                     </Button>
                 </div>
                 <div className={`flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mt-4 sm:mt-0 w-full sm:w-auto ${mobileMenuOpen ? 'block' : 'hidden sm:flex'}`}>
+                    {roomData?.role === "host" && (
+                        <Select onValueChange={onExpirationChange}>
+                            <SelectTrigger className="w-full sm:w-[180px] bg-white/10 text-white border-white/20">
+                                <Clock className="h-4 w-4 mr-2" />
+                                <SelectValue placeholder="Set Expiration" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="5">5 minutes</SelectItem>
+                                <SelectItem value="10">10 minutes</SelectItem>
+                                <SelectItem value="15">15 minutes</SelectItem>
+                                <SelectItem value="30">30 minutes</SelectItem>
+                                <SelectItem value="60">1 hour</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    )}
                     <Dialog>
                         <DialogTrigger asChild>
                             <Button
@@ -72,7 +88,7 @@ export default function Header({ members, roomCode, roomData, setShowExitDialog 
                                     variant="secondary"
                                     className="ml-2 bg-white/20 text-white hover:bg-white/30"
                                 >
-                                    {Object.keys(members).length}
+                                    {Object.keys(members).length}/10
                                 </Badge>
                             </Button>
                         </DialogTrigger>
@@ -92,8 +108,17 @@ export default function Header({ members, roomCode, roomData, setShowExitDialog 
                         }}
                         className="bg-white/10 hover:bg-white/20 text-white border-white/20 w-full sm:w-auto"
                     >
-                        {roomData?.role === "host" ? "Dismiss Room" : "Leave Room"}
-                        {roomData?.role === "host" ? <Eraser className="h-5 w-5 mr-2" /> : <LogOut className="h-5 w-5 mr-2" />}
+                        {roomData?.role === "host" ? (
+                            <>
+                                <Eraser className="h-5 w-5 mr-2" />
+                                Dismiss Room
+                            </>
+                        ) : (
+                            <>
+                                <LogOut className="h-5 w-5 mr-2" />
+                                Leave Room
+                            </>
+                        )}
                     </Button>
                 </div>
             </div>

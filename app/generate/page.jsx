@@ -42,6 +42,7 @@ export default function GenerateRoom() {
         // If the response is not okay, parse and display the error message if available
         const errorData = await response.json()
         setError(errorData?.error)
+        setLoading(false)
         return
       }
 
@@ -60,8 +61,11 @@ export default function GenerateRoom() {
       setError({
         general: "Something went wrong. Please try again later.",
       })
-    } finally {
       setLoading(false)
+    } finally {
+      setTimeout(() => {
+        setLoading(false)
+      }, 1000);
     }
   }
 

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Header from "@/app/chat/Header";
 import Messages from "@/app/chat/Messages";
 import InputArea from "@/app/chat/InputArea";
 import ExitRoom from "@/app/chat/ExitRoom";
-import { useRouter } from "next/navigation";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AlertCircle } from 'lucide-react';
+
 export default function ChatRoom() {
     const [messages, setMessages] = useState([]);
     const [showExitDialog, setShowExitDialog] = useState(false);
@@ -80,12 +82,24 @@ export default function ChatRoom() {
     console.log(members);
 
     return (
-        <div className="flex flex-col h-screen bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-gray-900 dark:to-indigo-900 overflow-hidden px-4 py-2 sm:px-6 sm:py-4">
-            <div className="flex-1 flex flex-col">
+        <div className="flex flex-col h-screen bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200 dark:from-indigo-900 dark:via-purple-900 dark:to-pink-900 overflow-hidden">
+            <div className="flex-1 flex flex-col px-4 py-2 sm:px-6 sm:py-4">
                 {isDisconnected && (
-                    <div className="bg-red-500 text-white text-center py-2 text-sm sm:text-base">
-                        WebSocket is disconnected. Reconnecting...
-                    </div>
+                    <TooltipProvider>
+                        <Tooltip open={isDisconnected}>
+                            <TooltipTrigger asChild>
+                                <div className="absolute top-2 right-2 z-50">
+                                <AlertCircle className="h-6 w-6 text-red-500" />
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent 
+                            side="left"
+                            className="bg-red-500 bg-opacity-80 text-white border-none shadow-lg"
+                        >
+                            <p>WebSocket is disconnected. Reconnecting...</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
                 )}
 
                 <Header
@@ -121,3 +135,4 @@ export default function ChatRoom() {
         </div>
     );
 }
+
