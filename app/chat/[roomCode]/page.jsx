@@ -6,7 +6,7 @@ import Header from "@/app/chat/Header";
 import Messages from "@/app/chat/Messages";
 import InputArea from "@/app/chat/InputArea";
 import ExitRoom from "@/app/chat/ExitRoom";
-
+import { useRouter } from "next/navigation";
 export default function ChatRoom() {
     const [messages, setMessages] = useState([]);
     const [showExitDialog, setShowExitDialog] = useState(false);
@@ -14,11 +14,14 @@ export default function ChatRoom() {
     const [socket, setSocket] = useState(null);
     const [roomData, setRoomData] = useState({});
     const [isDisconnected, setIsDisconnected] = useState(false);
-
+    const router = useRouter();
     const params = useParams();
 
     useEffect(() => {
         const participant = JSON.parse(localStorage.getItem(params.roomCode));
+        if (!participant?.participant_id) {
+            router.push("/");
+        }
         setRoomData(participant);
     }, []);
 
@@ -72,8 +75,9 @@ export default function ChatRoom() {
         };
 
         connectWebSocket();
-    }, [params.roomCode, roomData.participant_id]);
-    
+    }, [params.roomCode, roomData?.participant_id]);
+
+    console.log(members);
 
     return (
         <div className="flex flex-col h-screen bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-gray-900 dark:to-indigo-900 overflow-hidden px-4 py-2 sm:px-6 sm:py-4">
@@ -87,6 +91,7 @@ export default function ChatRoom() {
                 <Header
                     members={members}
                     roomCode={params.roomCode}
+                    roomData={roomData}
                     setShowExitDialog={setShowExitDialog}
                 />
 
@@ -95,6 +100,7 @@ export default function ChatRoom() {
                     setMessages={setMessages}
                     roomCode={params.roomCode}
                     socket={socket}
+                    setMembers={setMembers}
                 />
 
                 <div className="sticky bottom-0">
@@ -108,6 +114,8 @@ export default function ChatRoom() {
                 <ExitRoom
                     showExitDialog={showExitDialog}
                     setShowExitDialog={setShowExitDialog}
+                    roomData={roomData}
+                    socket={socket}
                 />
             </div>
         </div>

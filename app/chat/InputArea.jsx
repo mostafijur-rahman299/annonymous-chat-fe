@@ -36,6 +36,7 @@ export default function InputArea({
             if (socket && socket.readyState === WebSocket.OPEN) {
                 const message_tmp_id = "new-msg-" + Date.now().toString();
                 const messageData = {
+                    command: "send_message",
                     message: input.trim(),
                     message_tmp_id: message_tmp_id,
                 };

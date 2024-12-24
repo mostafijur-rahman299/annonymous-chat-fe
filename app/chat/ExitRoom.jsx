@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -13,8 +12,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 
-function ExitRoom({ showExitDialog, setShowExitDialog }) {
+function ExitRoom({ socket, roomData, showExitDialog, setShowExitDialog }) {
     const router = useRouter();
+
+    const handleExit = () => {
+        socket.send(JSON.stringify({
+            command: "leave_room",
+            room_code: roomData.room_code,
+        }));
+        router.push("/");
+    };
 
     return (
         <AlertDialog
@@ -37,12 +44,7 @@ function ExitRoom({ showExitDialog, setShowExitDialog }) {
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
-                        onClick={() => {
-                            console.log(
-                                "Exiting room and navigating to home page"
-                            );
-                            router.push("/");
-                        }}
+                        onClick={handleExit}
                         className="bg-red-500 hover:bg-red-600 text-white"
                     >
                         Exit

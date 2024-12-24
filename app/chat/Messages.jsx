@@ -5,10 +5,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Check, Clock, Copy } from 'lucide-react';
+import { Check, Clock, Copy } from "lucide-react";
 import DOMPurify from "dompurify";
+import { useRouter } from "next/navigation";
 
-export default function Messages({ messages, setMessages, roomCode, socket }) {
+export default function Messages({ messages, setMessages, roomCode, socket, setMembers }) {
+    const router = useRouter();
     const scrollAreaRef = useRef(null);
     const [roomLocalData, setRoomLocalData] = useState(null);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -37,28 +39,49 @@ export default function Messages({ messages, setMessages, roomCode, socket }) {
         if (socket) {
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                if (data.sender.id !== roomLocalData.participant_id) {
-                    setMessages((prevMessages) => [...prevMessages, data]);
-                    console.log(isAtBottom());
-                    if (isAtBottom()) {
-                        setTimeout(() => {
-                            scrollToBottom();
-                        }, 100);
-                    }
-                } else {
-                    setMessages((prevMessages) => {
-                        const updatedMessages = prevMessages.map((message) =>
-                            message.id === data.message_tmp_id
-                                ? {
-                                      ...message,
-                                      id: data.id,
-                                      status: data.status,
-                                  }
-                                : message
-                        );
-                        return updatedMessages;
+                console.log(data);
+                if (data.response_type === "host_dismiss_room") {
+                    router.push("/");
+                }
+                else if (data.response_type === "join_participant") {
+                    setMembers((prevMembers) => {
+                        return {
+                            ...prevMembers,
+                            [data.participant.participant_id]: data.participant
+                        }
                     });
-                    scrollToBottom();
+                }
+                else if (data.response_type === "leave_participant") {
+                    setMembers((prevMembers) => {
+                        const { [data.participant.participant_id]: _, ...rest } = prevMembers;
+                        return rest;
+                    });
+                }
+                else if (data.response_type === "new_message") {
+                    if (data.sender.id !== roomLocalData.participant_id) {
+                        setMessages((prevMessages) => [...prevMessages, data]);
+                        console.log(isAtBottom());
+                        if (isAtBottom()) {
+                            setTimeout(() => {
+                                scrollToBottom();
+                            }, 100);
+                        }
+                    } else {
+                        setMessages((prevMessages) => {
+                            const updatedMessages = prevMessages.map(
+                                (message) =>
+                                    message.id === data.message_tmp_id
+                                        ? {
+                                              ...message,
+                                              id: data.id,
+                                              status: data.status,
+                                          }
+                                        : message
+                            );
+                            return updatedMessages;
+                        });
+                        scrollToBottom();
+                    }
                 }
             };
         }
@@ -182,14 +205,16 @@ export default function Messages({ messages, setMessages, roomCode, socket }) {
                                 <div className="flex items-center space-x-2">
                                     <p
                                         className={`text-xs ${
-                                            message.sender.id === roomLocalData?.participant_id
+                                            message.sender.id ===
+                                            roomLocalData?.participant_id
                                                 ? "text-white/80"
                                                 : "text-gray-500 dark:text-gray-400"
                                         }`}
                                     >
                                         {message?.created_at}
                                     </p>
-                                    {message.sender.id === roomLocalData?.participant_id && (
+                                    {message.sender.id ===
+                                        roomLocalData?.participant_id && (
                                         <span className="text-xs">
                                             {message.status === "delivered" ? (
                                                 <Check className="w-4 h-4 text-green-200" />
@@ -206,9 +231,15 @@ export default function Messages({ messages, setMessages, roomCode, socket }) {
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => copyMessageToClipboard(message.id, message.message_text)}
+                            onClick={() =>
+                                copyMessageToClipboard(
+                                    message.id,
+                                    message.message_text
+                                )
+                            }
                             className={`p-1 absolute bottom-2 right-2 ${
-                                message.sender.id === roomLocalData?.participant_id
+                                message.sender.id ===
+                                roomLocalData?.participant_id
                                     ? "hover:bg-white/10 text-white"
                                     : "hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300"
                             }`}
@@ -225,4 +256,3 @@ export default function Messages({ messages, setMessages, roomCode, socket }) {
         </ScrollArea>
     );
 }
-

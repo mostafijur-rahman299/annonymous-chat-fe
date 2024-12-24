@@ -4,10 +4,10 @@ import { useState } from "react";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, LogOut, Hash, Copy, Check, Menu } from 'lucide-react';
+import { Users, LogOut, Hash, Copy, Check, Menu, Eraser } from 'lucide-react';
 import MembersList from "@/app/chat/MemberList";
 
-export default function Header({ members, roomCode, setShowExitDialog }) {
+export default function Header({ members, roomCode, roomData, setShowExitDialog }) {
     const [copied, setCopied] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -88,13 +88,12 @@ export default function Header({ members, roomCode, setShowExitDialog }) {
                     <Button
                         variant="outline"
                         onClick={() => {
-                            console.log("Exit button clicked");
                             setShowExitDialog(true);
                         }}
                         className="bg-white/10 hover:bg-white/20 text-white border-white/20 w-full sm:w-auto"
                     >
-                        <LogOut className="h-5 w-5 mr-2" />
-                        Exit Room
+                        {roomData?.role === "host" ? "Dismiss Room" : "Leave Room"}
+                        {roomData?.role === "host" ? <Eraser className="h-5 w-5 mr-2" /> : <LogOut className="h-5 w-5 mr-2" />}
                     </Button>
                 </div>
             </div>
