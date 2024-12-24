@@ -120,7 +120,7 @@ export default function Home() {
                             <Link href="/join">
                                 <Button
                                     variant="outline"
-                                    className="px-8 py-4 text-lg font-semibold rounded-full border-2 border-white text-white hover:bg-white hover:text-gray-900 transition-all duration-300 ease-in-out transform hover:scale-105 hover:-rotate-1"
+                                    className="px-8 py-4 text-lg font-semibold rounded-full border-2 border-white text-gray-900 transition-all duration-300 ease-in-out transform hover:scale-105 hover:-rotate-1"
                                 >
                                     Join Room
                                 </Button>
