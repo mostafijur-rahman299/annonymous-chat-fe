@@ -79,11 +79,9 @@ export default function ChatRoom() {
         connectWebSocket();
     }, [params.roomCode, roomData?.participant_id]);
 
-    console.log(members);
-
     return (
         <div className="flex flex-col h-screen bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200 dark:from-indigo-900 dark:via-purple-900 dark:to-pink-900 overflow-hidden">
-            <div className="flex-1 flex flex-col px-4 py-2 sm:px-6 sm:py-4">
+            <div className="flex-1 flex flex-col px-2 py-2 sm:px-2 sm:py-2">
                 {isDisconnected && (
                     <TooltipProvider>
                         <Tooltip open={isDisconnected}>

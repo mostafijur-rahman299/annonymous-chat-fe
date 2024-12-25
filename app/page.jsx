@@ -15,6 +15,9 @@ import {
     ChevronDown,
 } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const AnimatedBackground = () => <div className="absolute inset-0 -z-10"></div>;
 
@@ -32,6 +35,10 @@ const ScrollIndicator = () => {
 
 export default function Home() {
     const [isScrolled, setIsScrolled] = useState(false);
+    const [roomCode, setRoomCode] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+    const router = useRouter();
     const featuresRef = useRef(null);
 
     useEffect(() => {
@@ -41,6 +48,75 @@ export default function Home() {
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
+
+    const joinChat = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            if (!roomCode) {
+                setError({
+                    room_code: "Room code is required",
+                });
+                setLoading(false);
+                return;
+            }
+
+            // Ensure the environment variable is set and log it for debugging
+            if (!process.env.NEXT_PUBLIC_API_URL) {
+                throw new Error(
+                    "API URL is not configured. Please check your environment variables."
+                );
+            }
+
+            const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/chat-api/join-room/`;
+
+            console.log(roomCode);
+
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    room_code: roomCode,
+                }),
+            });
+
+            if (!response.ok) {
+                // If the response is not okay, parse and display the error message if available
+                const errorData = await response.json();
+                alert(errorData?.message);
+                setError(errorData?.error);
+                setLoading(false);
+                return;
+            }
+
+            let data = await response.json();
+            data = data?.data;
+
+            // add data to local storage
+            localStorage.setItem(
+                `${data?.room_code}`,
+                JSON.stringify({
+                    nickname: data?.nickname,
+                    participant_id: `${data?.participant_id}`,
+                    role: data?.role,
+                })
+            );
+
+            router.push(`/chat/${data?.room_code}`);
+        } catch (err) {
+            setError({
+                general: "Something went wrong. Please try again later.",
+            });
+            setLoading(false);
+        } finally {
+            setTimeout(() => {
+                setLoading(false);
+            }, 1000);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-teal-800 to-green-900 text-white overflow-hidden">
@@ -101,11 +177,15 @@ export default function Home() {
                                 Anonymous Chat
                             </span>
                         </h1>
-                        <p className="text-xl md:text-2xl leading-relaxed mb-12 max-w-3xl mx-auto">
+                        <p className="text-xl md:text-2xl leading-relaxed mb-2 max-w-3xl mx-auto">
                             Experience the future of private communication.
                             Create or join secure rooms instantly, chat
                             anonymously, and connect without compromising your
-                            identity.
+                            identity, It's end to end encrypted.
+                        </p>
+                        <p className="text-xl md:text-2xl leading-relaxed mb-12 max-w-3xl mx-auto text-yellow-400 font-bold">
+                            It's free and takes just seconds to start! <br />
+                            So what are you waiting for? Start chatting now!
                         </p>
                         <div className="flex flex-wrap justify-center gap-4">
                             <Link href="/generate">
@@ -153,7 +233,7 @@ export default function Home() {
                                 icon: Lock,
                                 title: "Complete Privacy",
                                 description:
-                                    "Your identity remains hidden. Chat freely without privacy concerns.",
+                                    "Your identity remains hidden. Chat freely without privacy concerns. No need to register or login.",
                             },
                             {
                                 icon: Zap,
@@ -181,10 +261,10 @@ export default function Home() {
                             },
                             {
                                 icon: MessageSquare,
-                                title: "Rich Text Support",
+                                title: "Message Expiry",
                                 description:
-                                    "Express yourself with emojis, attachments, and formatted text.",
-                            },
+                                    "Messages are deleted whenever you leave the room. No one can read your messages after expiration time.",
+                            }
                         ].map((feature, index) => (
                             <motion.div
                                 key={index}
@@ -232,13 +312,13 @@ export default function Home() {
                                 step: 2,
                                 title: "Share the Code",
                                 description:
-                                    "Send the code to friends you want to chat with.",
+                                    "Send the code to friends or anyone you want to chat with, without revealing your identity.",
                             },
                             {
                                 step: 3,
                                 title: "Start Chatting",
                                 description:
-                                    "Enter the room and enjoy anonymous conversations!",
+                                    "Enter the room and enjoy anonymous conversations! It's end to end encrypted and anonymous. Enjoy the chat.",
                             },
                         ].map((step, index) => (
                             <motion.div
@@ -318,18 +398,43 @@ export default function Home() {
                         start!
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
-                        <Input
-                            type="text"
-                            placeholder="Enter room code"
-                            className="max-w-xs bg-white/10 backdrop-blur-md border-white/20 text-white placeholder-gray-400"
-                        />
-                        <Link href="/join">
+                        <div className="">
+                            <Input
+                                type="text"
+                                placeholder="Enter room code"
+                                className={cn(
+                                    "max-w-xs bg-white/10 backdrop-blur-md border-white/20 text-white placeholder-gray-400",
+                                    error?.room_code
+                                        ? "border-red-500"
+                                        : "border-gray-300",
+                                    "rounded-md p-2 focus:ring-2 focus:ring-yellow-400"
+                                )}
+                                onChange={(e) => setRoomCode(e.target.value)}
+                                value={roomCode}
+                                error={error?.room_code}
+                            />
+                        </div>
+
+                        <Button
+                            variant="default"
+                            className="px-8 py-4 text-lg font-semibold rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 hover:from-yellow-300 hover:to-orange-400 shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105"
+                            onClick={joinChat}
+                            disabled={loading}
+                        >
+                            {loading ? "Joining..." : "Join Room"}
+                            <ArrowRight className="ml-2 h-5 w-5" />
+                        </Button>
+
+                        <p className="text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto text-yellow-400 font-bold">
+                            or
+                        </p>
+
+                        <Link href="/generate">
                             <Button
                                 variant="default"
-                                className="px-8 py-4 text-lg font-semibold rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 hover:from-yellow-300 hover:to-orange-400 shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105"
+                                className="px-8 py-4 text-lg font-semibold rounded-full bg-gradient-to-r from-blue-400 to-teal-400 text-gray-900 hover:from-blue-300 hover:to-teal-300 shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105"
                             >
-                                Join Room
-                                <ArrowRight className="ml-2 h-5 w-5" />
+                                Get Started
                             </Button>
                         </Link>
                     </div>
@@ -385,7 +490,14 @@ export default function Home() {
                                 Connect With Us
                             </h4>
                             <div className="flex space-x-4">
-                                <a
+                                <p>
+                                    Any Suggestion, Feedback or Bug Report
+                                    Please reach out at <br />
+                                    <a href="mailto:hello.mostafij@gmail.com" className="text-gray-400 hover:text-white transition-colors">
+                                        hello.mostafij@gmail.com
+                                    </a>
+                                </p>
+                                {/* <a
                                     href="#"
                                     className="text-gray-400 hover:text-white transition-colors"
                                 >
@@ -435,13 +547,13 @@ export default function Home() {
                                             clipRule="evenodd"
                                         />
                                     </svg>
-                                </a>
+                                </a> */}
                             </div>
                         </div>
                     </div>
                     <div className="mt-8 pt-8 border-t border-gray-800 text-center">
                         <p className="text-gray-400">
-                            &copy; 2023 AnonymousChat. All rights reserved.
+                            &copy; 2024 AnonymousChat. All rights reserved.
                         </p>
                     </div>
                 </div>
