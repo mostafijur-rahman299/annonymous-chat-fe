@@ -20,6 +20,10 @@ function ExitRoom({ socket, roomData, showExitDialog, setShowExitDialog }) {
             command: "leave_room",
             room_code: roomData.room_code,
         }));
+
+        // Clear local storage
+        localStorage.removeItem(roomData.room_code);
+
         router.push("/");
     };
 

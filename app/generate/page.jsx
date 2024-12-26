@@ -8,11 +8,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ArrowRight } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ArrowRight, Clock } from 'lucide-react'
 
 export default function GenerateRoom() {
   const [roomCode, setRoomCode] = useState('')
   const [nickname, setNickname] = useState('')
+  const [expirationTime, setExpirationTime] = useState('10')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -37,6 +39,7 @@ export default function GenerateRoom() {
         body: JSON.stringify({
           room_code: roomCode,
           nickname: nickname,
+          expiration_duration: parseInt(expirationTime)
         }),
       })
 
@@ -119,6 +122,23 @@ export default function GenerateRoom() {
             className="w-full py-3 px-4 rounded-md border bg-white/5 text-white placeholder-gray-400 border-gray-300 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
           />
           {error?.room_code && <p className="text-red-500">{error?.room_code}</p>}
+        </div>
+        <div className="space-y-4">
+          <Label htmlFor="expirationTime" className="text-lg font-medium text-gray-200">
+            Select Room Expiration Time
+          </Label>
+          <Select value={expirationTime} onValueChange={setExpirationTime}>
+            <SelectTrigger className="w-full py-3 px-4 rounded-md border bg-white/5 text-white placeholder-gray-400 border-gray-300 focus:ring-2 focus:ring-yellow-400 focus:outline-none">
+              <SelectValue placeholder="Select expiration time" />
+            </SelectTrigger>
+            <SelectContent className="bg-white/10 backdrop-blur-md rounded-md">
+              <SelectItem value="5" className="cursor-pointer">5 minutes</SelectItem>
+              <SelectItem value="10" className="cursor-pointer">10 minutes</SelectItem>
+              <SelectItem value="15" className="cursor-pointer">15 minutes</SelectItem>
+              <SelectItem value="30" className="cursor-pointer">30 minutes</SelectItem>
+              <SelectItem value="60" className="cursor-pointer">1 hour</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <Button
           onClick={startChat}
