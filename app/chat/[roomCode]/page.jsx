@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/app/chat/Header";
 import Messages from "@/app/chat/Messages";
@@ -23,13 +23,31 @@ export default function ChatRoom() {
     const router = useRouter();
     const params = useParams();
 
+    const handleRoomExpiration = useCallback(async () => {
+        setShowWarningModal(false);
+
+        if (socket) {
+            socket.send(JSON.stringify({
+                command: "leave_room",
+                room_code: roomData.room_code,
+            }));
+            socket.close();
+        }
+
+        localStorage.removeItem(params.roomCode);
+
+        setTimeout(() => {
+            router.push("/");
+        }, 100);
+    }, [socket, roomData.room_code, params.roomCode, router]);
+
     useEffect(() => {
         const participant = JSON.parse(localStorage.getItem(params.roomCode));
         if (!participant?.participant_id) {
             router.push("/");
         }
         setRoomData(participant);
-    }, []);
+    }, [params.roomCode, router]);
 
     useEffect(() => {
         const fetchParticipants = async () => {
@@ -96,15 +114,20 @@ export default function ChatRoom() {
         const interval = setInterval(() => {
             setExpirationDuration((prevDuration) => {
                 const newDuration = prevDuration - 1;
+                if (newDuration <= 0) {
+                    clearInterval(interval);
+                    handleRoomExpiration();
+                    return 0;
+                }
                 if (newDuration <= 1) {
                     setShowWarningModal(true);
                 }
                 return newDuration;
             });
-        }, 1 * 60 * 1000);
+        }, 60 * 1000); // Check every minute
 
         return () => clearInterval(interval);
-    }, []);
+    }, [handleRoomExpiration]);
 
     useEffect(() => {
         let countdownInterval;
@@ -126,30 +149,17 @@ export default function ChatRoom() {
                 clearInterval(countdownInterval);
             }
         };
-    }, [showWarningModal]);
+    }, [showWarningModal, handleRoomExpiration]);
 
-    const handleRoomExpiration = async () => {
-      // Close the warning modal
-      setShowWarningModal(false);
-
-      // Send leave room command
-      if (socket) {
-        socket.send(JSON.stringify({
-          command: "leave_room",
-          room_code: roomData.room_code,
-        }));
-      }
-
-      // Clear local storage
-      localStorage.removeItem(params.roomCode);
-
-      // Redirect to home
-      router.push("/");
-    };
+    useEffect(() => {
+        if (expirationDuration <= 0) {
+            handleRoomExpiration();
+        }
+    }, [expirationDuration, handleRoomExpiration]);
 
     return (
         <div className="flex flex-col h-screen bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200 dark:from-indigo-900 dark:via-purple-900 dark:to-pink-900 overflow-hidden">
-            <div className="flex-1 flex flex-col px-2 py-2 sm:px-2 sm:py-2">
+            <div className="flex-1 flex flex-col px-2 py-2 sm:px-4 sm:py-4 md:px-6 md:py-6">
                 {isDisconnected && (
                     <TooltipProvider>
                         <Tooltip open={isDisconnected}>
@@ -185,7 +195,7 @@ export default function ChatRoom() {
                     setMembers={setMembers}
                 />
 
-                <div className="sticky bottom-0">
+                <div className="sticky bottom-0 mt-4">
                     <InputArea
                         setMessages={setMessages}
                         roomCode={params.roomCode}
@@ -202,7 +212,9 @@ export default function ChatRoom() {
 
                 <WarningModal
                     isOpen={showWarningModal}
-                    onClose={handleRoomExpiration}
+                    onClose={() => {
+                        setShowWarningModal(false);
+                    }}
                     countdown={warningCountdown}
                 />
             </div>
@@ -210,19 +222,17 @@ export default function ChatRoom() {
     );
 }
 
-
 function WarningModal({ isOpen, onClose, countdown }) {
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Warning: Chat Room Expiring Soon</DialogTitle>
-          <DialogDescription>
-            This chat room will expire in {countdown} seconds. You will be redirected to the home page when the room expires.
-          </DialogDescription>
-        </DialogHeader>
-      </DialogContent>
-    </Dialog>
-  );
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle className="text-lg font-semibold">Warning: Chat Room Expiring Soon</DialogTitle>
+                    <DialogDescription className="mt-2">
+                        This chat room will expire in <span className="font-bold text-red-500">{countdown}</span> seconds. You will be redirected to the home page when the room expires.
+                    </DialogDescription>
+                </DialogHeader>
+            </DialogContent>
+        </Dialog>
+    );
 }
-

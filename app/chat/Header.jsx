@@ -30,7 +30,7 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
-
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 export default function Header({
     members,
     roomCode,
@@ -41,7 +41,7 @@ export default function Header({
 }) {
     const [copied, setCopied] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
+    const isMobile = useMediaQuery("(max-width: 768px)");
     const copyRoomCode = () => {
         navigator.clipboard.writeText(roomCode).then(() => {
             setCopied(true);
@@ -118,7 +118,7 @@ export default function Header({
                         </Button>
                     </div>
                     <AnimatePresence>
-                        {(mobileMenuOpen || window.innerWidth > 1024) && (
+                        {(mobileMenuOpen || !isMobile) && (
                             <motion.div
                                 className="flex flex-col lg:flex-row items-stretch lg:items-center space-y-2 lg:space-y-0 lg:space-x-4 w-full lg:w-auto"
                                 initial={{ opacity: 0, y: -20 }}

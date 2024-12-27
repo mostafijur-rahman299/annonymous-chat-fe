@@ -451,7 +451,7 @@ export default function Home() {
                             </h3>
                             <p className="text-gray-400">
                                 Secure, private, and instant communication for
-                                everyone.
+                                everyone. Powered by <a href="https://www.mostafij.com" target="_blank" className="text-gray-400 hover:text-white transition-colors">@Mostafij</a>
                             </p>
                         </div>
                         <div>
