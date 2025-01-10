@@ -16,14 +16,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ArrowRight, Clock } from "lucide-react";
-import {
-    generateKeyPair,
-    exportPublicKey,
-    importPublicKey,
-    deriveSharedSecret,
-    encryptMessage,
-    decryptMessage,
-} from "@/utils/crypto";
+import { generateRSAKeyPair, generateGroupKey } from "@/utils/crypto";
 
 export default function GenerateRoom() {
     const [roomCode, setRoomCode] = useState("");
@@ -34,46 +27,8 @@ export default function GenerateRoom() {
 
     const router = useRouter();
 
-    // Generate key pair
-    const [keyPair, setKeyPair] = useState(null);
-    const [sharedSecret, setSharedSecret] = useState(null);
-    const [message, setMessage] = useState("");
-    const [encryptedMessage, setEncryptedMessage] = useState(null);
-    const [receivedMessage, setReceivedMessage] = useState("");
-
-    const handleGenerateKeyPair = async () => {
-        const pair = await generateKeyPair();
-        setKeyPair(pair);
-    };
-
-    const handleExportPublicKey = async () => {
-        const publicKey = await exportPublicKey(keyPair.publicKey);
-    };
-
-    const handleImportPublicKey = async (publicKey) => {
-        const importedKey = await importPublicKey(publicKey);
-        const secret = await deriveSharedSecret(
-            keyPair.privateKey,
-            importedKey
-        );
-        setSharedSecret(secret);
-    };
-
-    // const handleEncryptMessage = async () => {
-    //     if (!sharedSecret) return alert("Derive a shared secret first!");
-    //     const encrypted = await encryptMessage(sharedSecret, message);
-    //     setEncryptedMessage(encrypted);
-    //     alert("Message encrypted!");
-    // };
-
-    // const handleDecryptMessage = async (ciphertext, iv) => {
-    //     if (!sharedSecret) return alert("Derive a shared secret first!");
-    //     const decrypted = await decryptMessage(sharedSecret, ciphertext, iv);
-    //     setReceivedMessage(decrypted);
-    //     alert("Message decrypted!");
-    // };
-
     const startChat = async () => {
+
         try {
             setLoading(true);
             setError(null);
@@ -105,7 +60,11 @@ export default function GenerateRoom() {
                 return;
             }
 
+            // Store group information in local storage
+            const keyPair = await generateRSAKeyPair(); // User can use this to decrypt the group key
+            const groupKey = await generateGroupKey(); // User can use this to decrypt group messages
             let data = await response.json();
+
             data = data?.data;
             localStorage.setItem(
                 `${data?.room_code}`,
@@ -113,13 +72,12 @@ export default function GenerateRoom() {
                     nickname: data?.nickname,
                     participant_id: `${data?.participant_id}`,
                     role: data?.role,
+                    group_key: groupKey,
+                    rsa_key_pair: keyPair, // User can use this to decrypt the group key
                 })
             );
-
             router.push(`/chat/${data?.room_code}`);
 
-            handleGenerateKeyPair();
-            handleExportPublicKey();
         } catch (err) {
             setError({
                 general: "Something went wrong. Please try again later.",

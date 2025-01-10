@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { ArrowRight } from "lucide-react";
+import { generateRSAKeyPair, exportPublicKey } from "@/utils/crypto";
 
 export default function JoinRoom() {
     const [roomCode, setRoomCode] = useState("");
@@ -22,6 +23,9 @@ export default function JoinRoom() {
         try {
             setLoading(true);
             setError(null);
+
+            // add data to local storage
+            const keyPair = await generateRSAKeyPair(); // User can use this to decrypt the group key
 
             // Ensure the environment variable is set and log it for debugging
             if (!process.env.NEXT_PUBLIC_API_URL) {
@@ -40,6 +44,7 @@ export default function JoinRoom() {
                 body: JSON.stringify({
                     room_code: roomCode,
                     nickname: nickname,
+                    rsa_public_key: await exportPublicKey(keyPair.publicKey),
                 }),
             });
 
@@ -54,13 +59,13 @@ export default function JoinRoom() {
             let data = await response.json();
             data = data?.data;
 
-            // add data to local storage
             localStorage.setItem(
                 `${data?.room_code}`,
                 JSON.stringify({
                     nickname: data?.nickname,
                     participant_id: `${data?.participant_id}`,
                     role: data?.role,
+                    rsa_key_pair: keyPair, // User can use this to decrypt the group key
                 })
             );
 
