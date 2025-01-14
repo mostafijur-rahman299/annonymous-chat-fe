@@ -16,7 +16,14 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ArrowRight, Clock } from "lucide-react";
-import { generateRSAKeyPair, generateGroupKey } from "@/utils/crypto";
+import {
+    generateRSAKeyPair,
+    generateGroupKey,
+    base64Encode,
+    exportPublicKey,
+    exportPrivateKey,
+    exportGroupKey,
+} from "@/utils/crypto";
 
 export default function GenerateRoom() {
     const [roomCode, setRoomCode] = useState("");
@@ -28,7 +35,6 @@ export default function GenerateRoom() {
     const router = useRouter();
 
     const startChat = async () => {
-
         try {
             setLoading(true);
             setError(null);
@@ -60,25 +66,39 @@ export default function GenerateRoom() {
                 return;
             }
 
-            // Store group information in local storage
-            const keyPair = await generateRSAKeyPair(); // User can use this to decrypt the group key
-            const groupKey = await generateGroupKey(); // User can use this to decrypt group messages
-            let data = await response.json();
+            // Generate keys
+            const keyPair = await generateRSAKeyPair(); // RSA key pair
+            const groupKey = await generateGroupKey(); // AES group key
 
-            data = data?.data;
+            // Export keys to Base64
+            const exportedGroupKey = await exportGroupKey(groupKey);
+            const exportedPrivateKey = await exportPrivateKey(
+                keyPair.privateKey
+            );
+            const exportedPublicKey = await exportPublicKey(keyPair.publicKey);
+
+            // Parse response JSON
+            const data = await response.json();
+
+            // Save to localStorage
             localStorage.setItem(
-                `${data?.room_code}`,
+                `${data?.data?.room_code}`,
                 JSON.stringify({
-                    nickname: data?.nickname,
-                    participant_id: `${data?.participant_id}`,
-                    role: data?.role,
-                    group_key: groupKey,
-                    rsa_key_pair: keyPair, // User can use this to decrypt the group key
+                    nickname: data?.data?.nickname,
+                    participant_id: `${data?.data?.participant_id}`,
+                    role: data?.data?.role,
+                    group_key: exportedGroupKey, // Save serialized group key
+                    rsa_key_pair: {
+                        publicKey: exportedPublicKey,
+                        privateKey: exportedPrivateKey,
+                    },
                 })
             );
-            router.push(`/chat/${data?.room_code}`);
 
+            console.log("Data successfully saved to localStorage");
+            router.push(`/chat/${data?.data?.room_code}`);
         } catch (err) {
+            console.error("Error occurred:", err);
             setError({
                 general: "Something went wrong. Please try again later.",
             });

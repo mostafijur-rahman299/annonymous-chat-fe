@@ -12,17 +12,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 
-function ExitRoom({ socket, roomData, showExitDialog, setShowExitDialog }) {
+function ExitRoom({ socket, roomCode, showExitDialog, setShowExitDialog }) {
     const router = useRouter();
 
     const handleExit = () => {
         socket.send(JSON.stringify({
             command: "leave_room",
-            room_code: roomData.room_code,
+            room_code: roomCode,
         }));
 
         // Clear local storage
-        localStorage.removeItem(roomData.room_code);
+        console.log("Clearing local storage for room code:", roomCode);
+        localStorage.removeItem(roomCode);
 
         router.push("/");
     };

@@ -18,6 +18,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { importGroupKey, encryptGroupKey, importPublicKey } from "@/utils/crypto";
 
 export default function Messages({
     messages,
@@ -32,6 +33,7 @@ export default function Messages({
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [copiedMessageId, setCopiedMessageId] = useState(null);
     const [hoveredMessageId, setHoveredMessageId] = useState(null);
+    const roomData = JSON.parse(localStorage.getItem(`${roomCode}`));
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -55,7 +57,7 @@ export default function Messages({
 
     useEffect(() => {
         if (socket) {
-            socket.onmessage = (event) => {
+            socket.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
                 console.log(data);
                 if (data.response_type === "host_dismiss_room") {
@@ -95,7 +97,23 @@ export default function Messages({
                             )
                         );
                         setTimeout(scrollToBottom, 30);
-                    }
+                    } 
+                } else if (data.response_type === "new_participant_join_notification_to_host") {
+
+                    const rsaPublicKey = await importPublicKey(data.participant.rsa_public_key);
+                    const groupKey = await importGroupKey(roomData.group_key);
+                    const encryptedGroupKey = await encryptGroupKey(groupKey, rsaPublicKey);
+
+                    setTimeout(() => {
+                        socket.send(JSON.stringify({
+                            command: "send_group_key",
+                            room_code: roomCode,
+                            participant_id: data.participant.participant_id,
+                            group_key: encryptedGroupKey
+                        }));
+                    }, 1000);
+                } else if (data.response_type === "group_msg_encryption_key") {
+                    console.log("group_msg_encryption_key", data);
                 }
             };
         }

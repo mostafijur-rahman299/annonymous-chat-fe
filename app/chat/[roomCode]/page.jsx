@@ -39,7 +39,7 @@ export default function ChatRoom() {
         setTimeout(() => {
             router.push("/");
         }, 100);
-    }, [socket, roomData.room_code, params.roomCode, router]);
+    }, [socket, roomData?.room_code, params?.roomCode, router]);
 
     useEffect(() => {
         const participant = JSON.parse(localStorage.getItem(params.roomCode));
@@ -206,7 +206,7 @@ export default function ChatRoom() {
                 <ExitRoom
                     showExitDialog={showExitDialog}
                     setShowExitDialog={setShowExitDialog}
-                    roomData={roomData}
+                    roomCode={params.roomCode}
                     socket={socket}
                 />
 

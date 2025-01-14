@@ -1,9 +1,9 @@
 // Helper Functions
-function base64Encode(buffer) {
+export function base64Encode(buffer) {
     return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/=/g, '');
 }
 
-function base64Decode(base64) {
+export function base64Decode(base64) {
     return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
 }
 
@@ -14,6 +14,16 @@ export async function generateGroupKey() {
         true, // Extractable
         ["encrypt", "decrypt"]
     );
+}
+
+export async function exportGroupKey(groupKey) {
+    const exported = await crypto.subtle.exportKey("raw", groupKey);
+    return base64Encode(exported);
+}
+
+export async function importGroupKey(base64Key) {
+    const binaryKey = base64Decode(base64Key);
+    return await crypto.subtle.importKey("raw", binaryKey, "AES-GCM", true, ["encrypt", "decrypt"]);
 }
 
 // Encrypt the group key with an RSA public key
@@ -27,7 +37,6 @@ export async function encryptGroupKey(groupKey, rsaPublicKey) {
         )
     );
 }
-
 
 export async function decryptGroupKey(encryptedKey, rsaPrivateKey) {
     const binaryKey = base64Decode(encryptedKey);
@@ -66,24 +75,39 @@ export async function exportPublicKey(publicKey) {
     return base64Encode(exported);
 }
 
+export async function exportPrivateKey(privateKey) {
+    const exported = await crypto.subtle.exportKey("pkcs8", privateKey);
+    return base64Encode(exported);
+}
+
+export async function importPrivateKey(base64Key) {
+    const binaryKey = base64Decode(base64Key);
+    return await crypto.subtle.importKey("pkcs8", binaryKey, "RSA-OAEP", true, ["encrypt", "decrypt"]);
+}
+
 // Import a Base64-encoded public key into a CryptoKey object
+// Import a Base64-encoded RSA public key (SPKI format)
 export async function importPublicKey(base64Key) {
     try {
+        // Decode the Base64 key into a binary ArrayBuffer
         const binaryKey = base64Decode(base64Key);
+        // Import the binary key in SPKI format
         return await crypto.subtle.importKey(
-            "spki",
-            binaryKey.buffer,
+            "spki", // SPKI format for public keys
+            binaryKey.buffer, // ArrayBuffer
             {
-                name: "ECDH",
-                namedCurve: "P-256",
+                name: "RSA-OAEP",
+                hash: "SHA-256", // Use the same hash algorithm as the key pair
             },
-            true,
-            [] // No usages for imported public key
+            true, // Extractable
+            ["encrypt"] // Usages
         );
     } catch (e) {
-        throw new Error("Failed to import public key: " + e.message);
+        console.log("Failed to import public key: " + e.message);
+        // throw new Error("Failed to import public key: " + e.message);
     }
 }
+
 
 // Derive a shared secret using ECDH
 export async function deriveSharedSecret(privateKey, publicKey) {
