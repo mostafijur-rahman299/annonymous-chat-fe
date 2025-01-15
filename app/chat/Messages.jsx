@@ -5,11 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-    Check,
-    Clock,
-    Copy
-} from "lucide-react";
+import { Check, Clock, Copy } from "lucide-react";
 import DOMPurify from "dompurify";
 import { useRouter } from "next/navigation";
 import {
@@ -18,7 +14,14 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { importGroupKey, encryptGroupKey, importPublicKey } from "@/utils/crypto";
+import {
+    importGroupKey,
+    encryptGroupKey,
+    importPublicKey,
+    decryptGroupKey,
+    importPrivateKey,
+    exportGroupKey
+} from "@/utils/crypto";
 
 export default function Messages({
     messages,
@@ -34,6 +37,7 @@ export default function Messages({
     const [copiedMessageId, setCopiedMessageId] = useState(null);
     const [hoveredMessageId, setHoveredMessageId] = useState(null);
     const roomData = JSON.parse(localStorage.getItem(`${roomCode}`));
+
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -77,10 +81,18 @@ export default function Messages({
                     });
                 } else if (data.response_type === "new_message") {
                     if (data.sender.id !== roomLocalData?.participant_id) {
-                        setMessages((prevMessages) => [...prevMessages, {
-                            ...data,
-                            created_at: new Date(data.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-                        }]);
+                        setMessages((prevMessages) => [
+                            ...prevMessages,
+                            {
+                                ...data,
+                                created_at: new Date(
+                                    data.created_at
+                                ).toLocaleTimeString("en-US", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                }),
+                            },
+                        ]);
                         if (isAtBottom()) {
                             setTimeout(scrollToBottom, 10);
                         }
@@ -97,23 +109,49 @@ export default function Messages({
                             )
                         );
                         setTimeout(scrollToBottom, 30);
-                    } 
-                } else if (data.response_type === "new_participant_join_notification_to_host") {
-
-                    const rsaPublicKey = await importPublicKey(data.participant.rsa_public_key);
+                    }
+                } else if (
+                    data.response_type ===
+                    "new_participant_join_notification_to_host"
+                ) {
+                    const rsaPublicKey = await importPublicKey(
+                        data.participant.rsa_public_key
+                    );
                     const groupKey = await importGroupKey(roomData.group_key);
-                    const encryptedGroupKey = await encryptGroupKey(groupKey, rsaPublicKey);
+                    const encryptedGroupKey = await encryptGroupKey(
+                        groupKey,
+                        rsaPublicKey
+                    );
 
                     setTimeout(() => {
-                        socket.send(JSON.stringify({
-                            command: "send_group_key",
-                            room_code: roomCode,
-                            participant_id: data.participant.participant_id,
-                            group_key: encryptedGroupKey
-                        }));
+                        socket.send(
+                            JSON.stringify({
+                                command: "send_group_key",
+                                room_code: roomCode,
+                                participant_id: data.participant.participant_id,
+                                group_key: encryptedGroupKey,
+                            })
+                        );
                     }, 1000);
                 } else if (data.response_type === "group_msg_encryption_key") {
-                    console.log("group_msg_encryption_key", data);
+                    const rsaPublicKey = await importPrivateKey(
+                        roomData.rsa_key_pair.privateKey
+                    );
+                    const decryptedGroupKey = await decryptGroupKey(
+                        data.group_key,
+                        rsaPublicKey
+                    );
+
+                    roomData["group_key"] = await exportGroupKey(
+                        decryptedGroupKey
+                    );
+
+                    console.log(roomData["group_key"]);
+                    
+                    localStorage.setItem(
+                        `${roomCode}`,
+                        JSON.stringify(roomData)
+                    );
                 }
             };
         }
@@ -143,7 +181,11 @@ export default function Messages({
     const fetchMessages = async () => {
         try {
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL}/chat-api/room-messages/${roomCode}/?timezone=${Intl.DateTimeFormat().resolvedOptions().timeZone}`
+                `${
+                    process.env.NEXT_PUBLIC_API_URL
+                }/chat-api/room-messages/${roomCode}/?timezone=${
+                    Intl.DateTimeFormat().resolvedOptions().timeZone
+                }`
             );
             const data = await response.json();
             setMessages(data);
@@ -306,7 +348,6 @@ export default function Messages({
                                 </TooltipProvider>
                             </motion.div>
                         )}
-                        
                     </div>
                 ))}
             </AnimatePresence>

@@ -80,9 +80,20 @@ export async function exportPrivateKey(privateKey) {
     return base64Encode(exported);
 }
 
+
 export async function importPrivateKey(base64Key) {
     const binaryKey = base64Decode(base64Key);
-    return await crypto.subtle.importKey("pkcs8", binaryKey, "RSA-OAEP", true, ["encrypt", "decrypt"]);
+    const privateKey = await crypto.subtle.importKey(
+        "pkcs8", 
+        binaryKey, 
+        {
+            name: "RSA-OAEP",
+            hash: "SHA-256"  // Specify the hash algorithm
+        }, 
+        true, 
+        ["decrypt"]
+    );
+    return privateKey;
 }
 
 // Import a Base64-encoded public key into a CryptoKey object
