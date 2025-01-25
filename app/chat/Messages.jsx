@@ -80,36 +80,40 @@ export default function Messages({
                         return rest;
                     });
                 } else if (data.response_type === "new_message") {
-                    if (data.sender.id !== roomLocalData?.participant_id) {
-                        setMessages((prevMessages) => [
-                            ...prevMessages,
-                            {
-                                ...data,
-                                created_at: new Date(
-                                    data.created_at
-                                ).toLocaleTimeString("en-US", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                }),
-                            },
-                        ]);
-                        if (isAtBottom()) {
-                            setTimeout(scrollToBottom, 10);
-                        }
-                    } else {
-                        setMessages((prevMessages) =>
-                            prevMessages.map((message) =>
-                                message.id === data.message_tmp_id
-                                    ? {
-                                          ...message,
-                                          id: data.id,
-                                          status: data.status,
-                                      }
-                                    : message
-                            )
-                        );
-                        setTimeout(scrollToBottom, 30);
-                    }
+                    console.log(data);
+
+                    
+
+                    // if (data.sender.id !== roomLocalData?.participant_id) {
+                    //     setMessages((prevMessages) => [
+                    //         ...prevMessages,
+                    //         {
+                    //             ...data,
+                    //             created_at: new Date(
+                    //                 data.created_at
+                    //             ).toLocaleTimeString("en-US", {
+                    //                 hour: "2-digit",
+                    //                 minute: "2-digit",
+                    //             }),
+                    //         },
+                    //     ]);
+                    //     if (isAtBottom()) {
+                    //         setTimeout(scrollToBottom, 10);
+                    //     }
+                    // } else {
+                    //     setMessages((prevMessages) =>
+                    //         prevMessages.map((message) =>
+                    //             message.id === data.message_tmp_id
+                    //                 ? {
+                    //                       ...message,
+                    //                       id: data.id,
+                    //                       status: data.status,
+                    //                   }
+                    //                 : message
+                    //         )
+                    //     );
+                    //     setTimeout(scrollToBottom, 30);
+                    // }
                 } else if (
                     data.response_type ===
                     "new_participant_join_notification_to_host"
@@ -134,19 +138,17 @@ export default function Messages({
                         );
                     }, 1000);
                 } else if (data.response_type === "group_msg_encryption_key") {
-                    const rsaPublicKey = await importPrivateKey(
+                    const rasPublicKey = await importPrivateKey(
                         roomData.rsa_key_pair.privateKey
                     );
                     const decryptedGroupKey = await decryptGroupKey(
                         data.group_key,
-                        rsaPublicKey
+                        rasPublicKey
                     );
 
                     roomData["group_key"] = await exportGroupKey(
                         decryptedGroupKey
                     );
-
-                    console.log(roomData["group_key"]);
                     
                     localStorage.setItem(
                         `${roomCode}`,

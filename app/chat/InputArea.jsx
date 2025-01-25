@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Smile, Paperclip, Mic } from 'lucide-react';
+import { Send, Smile } from 'lucide-react';
 import { motion, AnimatePresence } from "framer-motion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import EmojiPicker from 'emoji-picker-react';
+import { encryptMessage, importGroupKey } from "@/utils/crypto";
 
 export default function InputArea({
     setMessages,
@@ -36,13 +37,18 @@ export default function InputArea({
         element.style.height = "auto";
     };
 
-    const sendMessage = () => {
+    const sendMessage = async () => {
         if (input.trim()) {
             if (socket && socket.readyState === WebSocket.OPEN) {
+
+                // Encrypt the message
+                const groupKey = await importGroupKey(roomLocalData?.group_key);
+                const encryptedMessage = await encryptMessage(input.trim(), groupKey);
+                
                 const message_tmp_id = "new-msg-" + Date.now().toString();
                 const messageData = {
                     command: "send_message",
-                    message: input.trim(),
+                    message: encryptedMessage,
                     message_tmp_id: message_tmp_id,
                 };
 

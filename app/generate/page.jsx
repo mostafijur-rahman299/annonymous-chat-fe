@@ -15,11 +15,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { ArrowRight, Clock } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import {
     generateRSAKeyPair,
     generateGroupKey,
-    base64Encode,
     exportPublicKey,
     exportPrivateKey,
     exportGroupKey,
@@ -38,7 +37,8 @@ export default function GenerateRoom() {
         try {
             setLoading(true);
             setError(null);
-
+            
+            // Check if the API URL is configured
             if (!process.env.NEXT_PUBLIC_API_URL) {
                 throw new Error(
                     "API URL is not configured. Please check your environment variables."
@@ -94,8 +94,6 @@ export default function GenerateRoom() {
                     },
                 })
             );
-
-            console.log("Data successfully saved to localStorage");
             router.push(`/chat/${data?.data?.room_code}`);
         } catch (err) {
             console.error("Error occurred:", err);
