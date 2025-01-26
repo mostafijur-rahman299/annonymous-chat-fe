@@ -41,8 +41,14 @@ export default function InputArea({
         if (input.trim()) {
             if (socket && socket.readyState === WebSocket.OPEN) {
 
+                // get room data from local storage
+                // we already have the room data in roomLocalData but this data is not updated when the room data is updated
+                // so we need to get the room data as soon as the user sends a message
+                const roomData = JSON.parse(localStorage.getItem(`${roomCode}`) || '{}');
+                setRoomLocalData(roomData);
+
                 // Encrypt the message
-                const groupKey = await importGroupKey(roomLocalData?.group_key);
+                const groupKey = await importGroupKey(roomData?.group_key);
                 const encryptedMessage = await encryptMessage(input.trim(), groupKey);
                 
                 const message_tmp_id = "new-msg-" + Date.now().toString();
@@ -58,9 +64,9 @@ export default function InputArea({
                     created_at: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
                     status: "pending",
                     sender: {
-                        id: roomLocalData?.participant_id,
-                        nickname: roomLocalData?.nickname,
-                        role: roomLocalData?.role,
+                        id: roomData?.participant_id,
+                        nickname: roomData?.nickname,
+                        role: roomData?.role,
                     }
                 };
                 setMessages((prevMessages) => [...prevMessages, newMessage]);

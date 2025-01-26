@@ -20,7 +20,8 @@ import {
     importPublicKey,
     decryptGroupKey,
     importPrivateKey,
-    exportGroupKey
+    exportGroupKey,
+    decryptMessage,
 } from "@/utils/crypto";
 
 export default function Messages({
@@ -80,40 +81,47 @@ export default function Messages({
                         return rest;
                     });
                 } else if (data.response_type === "new_message") {
-                    console.log(data);
 
-                    
+                    // get room data from local storage
+                    // we already have the room data in roomLocalData but this data is not updated when the room data is updated
+                    // so we need to get the room data as soon as the user sends a message
+                    const roomData = JSON.parse(localStorage.getItem(`${roomCode}`) || '{}');
+                    setRoomLocalData(roomData);
 
-                    // if (data.sender.id !== roomLocalData?.participant_id) {
-                    //     setMessages((prevMessages) => [
-                    //         ...prevMessages,
-                    //         {
-                    //             ...data,
-                    //             created_at: new Date(
-                    //                 data.created_at
-                    //             ).toLocaleTimeString("en-US", {
-                    //                 hour: "2-digit",
-                    //                 minute: "2-digit",
-                    //             }),
-                    //         },
-                    //     ]);
-                    //     if (isAtBottom()) {
-                    //         setTimeout(scrollToBottom, 10);
-                    //     }
-                    // } else {
-                    //     setMessages((prevMessages) =>
-                    //         prevMessages.map((message) =>
-                    //             message.id === data.message_tmp_id
-                    //                 ? {
-                    //                       ...message,
-                    //                       id: data.id,
-                    //                       status: data.status,
-                    //                   }
-                    //                 : message
-                    //         )
-                    //     );
-                    //     setTimeout(scrollToBottom, 30);
-                    // }
+                    const groupKey = await importGroupKey(roomData?.group_key);
+                    const decryptedMessage = await decryptMessage(data.message_text.ciphertext, data.message_text.iv, groupKey);
+
+                    if (data.sender.id !== roomLocalData?.participant_id) {
+                        setMessages((prevMessages) => [
+                            ...prevMessages,
+                            {
+                                ...data,
+                                message_text: decryptedMessage,
+                                created_at: new Date(
+                                    data.created_at
+                                ).toLocaleTimeString("en-US", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                }),
+                            },
+                        ]);
+                        if (isAtBottom()) {
+                            setTimeout(scrollToBottom, 10);
+                        }
+                    } else {
+                        setMessages((prevMessages) =>
+                            prevMessages.map((message) =>
+                                message.id === data.message_tmp_id
+                                    ? {
+                                          ...message,
+                                          id: data.id,
+                                          status: data.status,
+                                      }
+                                    : message
+                            )
+                        );
+                        setTimeout(scrollToBottom, 30);
+                    }
                 } else if (
                     data.response_type ===
                     "new_participant_join_notification_to_host"
@@ -138,6 +146,7 @@ export default function Messages({
                         );
                     }, 1000);
                 } else if (data.response_type === "group_msg_encryption_key") {
+                    // Encrypted group key is sent to the participant by host when the participant joins the room
                     const rasPublicKey = await importPrivateKey(
                         roomData.rsa_key_pair.privateKey
                     );
@@ -154,6 +163,9 @@ export default function Messages({
                         `${roomCode}`,
                         JSON.stringify(roomData)
                     );
+
+                    // fetch the messages from the server
+                    fetchMessages();
                 }
             };
         }
@@ -181,6 +193,12 @@ export default function Messages({
     }, [messages, isInitialLoad]);
 
     const fetchMessages = async () => {
+        const roomData = JSON.parse(localStorage.getItem(`${roomCode}`) || '{}');
+        if(!roomData?.group_key) {
+            return;
+        }
+        const groupKey = await importGroupKey(roomData?.group_key);
+
         try {
             const response = await fetch(
                 `${
@@ -190,7 +208,14 @@ export default function Messages({
                 }`
             );
             const data = await response.json();
-            setMessages(data);
+
+            // decrypt the messages
+            const decryptedMessages = await Promise.all(data.map(async (msg) => {
+                let message = JSON.parse(msg.message_text.replace(/'/g, '"'));
+                const decryptedMessage = await decryptMessage(message.ciphertext, message.iv, groupKey);
+                return { ...msg, message_text: decryptedMessage };
+            }));
+            setMessages(decryptedMessages);
         } catch (error) {
             console.error("Error fetching messages:", error);
         }

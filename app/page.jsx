@@ -17,7 +17,7 @@ import {
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { generateRSAKeyPair, exportPrivateKey, exportPublicKey } from "@/utils/crypto";
 
 const AnimatedBackground = () => <div className="absolute inset-0 -z-10"></div>;
 
@@ -54,13 +54,14 @@ export default function Home() {
             setLoading(true);
             setError(null);
 
-            if (!roomCode) {
-                setError({
-                    room_code: "Room code is required",
-                });
-                setLoading(false);
-                return;
-            }
+            // add data to local storage
+            const keyPair = await generateRSAKeyPair(); // User can use this to decrypt the group key
+
+            // Export keys to Base64
+            const exportedPrivateKey = await exportPrivateKey(
+                keyPair.privateKey
+            );
+            const exportedPublicKey = await exportPublicKey(keyPair.publicKey);
 
             // Ensure the environment variable is set and log it for debugging
             if (!process.env.NEXT_PUBLIC_API_URL) {
@@ -71,8 +72,6 @@ export default function Home() {
 
             const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/chat-api/join-room/`;
 
-            console.log(roomCode);
-
             const response = await fetch(apiUrl, {
                 method: "POST",
                 headers: {
@@ -80,13 +79,13 @@ export default function Home() {
                 },
                 body: JSON.stringify({
                     room_code: roomCode,
+                    rsa_public_key: exportedPublicKey,
                 }),
             });
 
             if (!response.ok) {
                 // If the response is not okay, parse and display the error message if available
                 const errorData = await response.json();
-                alert(errorData?.message);
                 setError(errorData?.error);
                 setLoading(false);
                 return;
@@ -95,13 +94,16 @@ export default function Home() {
             let data = await response.json();
             data = data?.data;
 
-            // add data to local storage
             localStorage.setItem(
                 `${data?.room_code}`,
                 JSON.stringify({
-                    nickname: data?.nickname,
                     participant_id: `${data?.participant_id}`,
+                    nickname: data?.nickname,
                     role: data?.role,
+                    rsa_key_pair: {
+                        publicKey: exportedPublicKey,
+                        privateKey: exportedPrivateKey,
+                    },
                 })
             );
 
@@ -117,6 +119,7 @@ export default function Home() {
             }, 1000);
         }
     };
+    
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-teal-800 to-green-900 text-white overflow-hidden">
