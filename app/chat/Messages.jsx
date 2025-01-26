@@ -1,383 +1,363 @@
-"use client";
+"use client"
 
-import { useRef, useEffect, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { motion, AnimatePresence } from "framer-motion";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Check, Clock, Copy } from "lucide-react";
-import DOMPurify from "dompurify";
-import { useRouter } from "next/navigation";
+import { useRef, useEffect, useState } from "react"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { motion, AnimatePresence } from "framer-motion"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { Check, Clock, Copy, ChevronDown, MessageSquare } from "lucide-react"
+import DOMPurify from "dompurify"
+import { useRouter } from "next/navigation"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-    importGroupKey,
-    encryptGroupKey,
-    importPublicKey,
-    decryptGroupKey,
-    importPrivateKey,
-    exportGroupKey,
-    decryptMessage,
-} from "@/utils/crypto";
+  importGroupKey,
+  encryptGroupKey,
+  importPublicKey,
+  decryptGroupKey,
+  importPrivateKey,
+  exportGroupKey,
+  decryptMessage,
+} from "@/utils/crypto"
 
-export default function Messages({
-    messages,
-    setMessages,
-    roomCode,
-    socket,
-    setMembers,
-}) {
-    const router = useRouter();
-    const scrollAreaRef = useRef(null);
-    const [roomLocalData, setRoomLocalData] = useState(null);
-    const [isInitialLoad, setIsInitialLoad] = useState(true);
-    const [copiedMessageId, setCopiedMessageId] = useState(null);
-    const [hoveredMessageId, setHoveredMessageId] = useState(null);
-    const roomData = JSON.parse(localStorage.getItem(`${roomCode}`));
+export default function Messages({ messages, setMessages, roomCode, socket, setMembers }) {
+  const router = useRouter()
+  const scrollAreaRef = useRef(null)
+  const [roomLocalData, setRoomLocalData] = useState(null)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const [copiedMessageId, setCopiedMessageId] = useState(null)
+  const [hoveredMessageId, setHoveredMessageId] = useState(null)
+  const [showScrollButton, setShowScrollButton] = useState(false)
+  const [newMessageCount, setNewMessageCount] = useState(0)
+  const roomData = JSON.parse(localStorage.getItem(`${roomCode}`))
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const roomData = JSON.parse(localStorage.getItem(`${roomCode}`) || "{}")
+      setRoomLocalData(roomData)
+    }
+  }, [roomCode])
 
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            const roomData = JSON.parse(
-                localStorage.getItem(`${roomCode}`) || "{}"
-            );
-            setRoomLocalData(roomData);
-        }
-    }, [roomCode]);
+  const isAtBottom = () => {
+    if (!scrollAreaRef.current) return false
+    const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
+    if (!scrollContainer) return false
 
-    const isAtBottom = () => {
-        if (!scrollAreaRef.current) return false;
-        const scrollContainer = scrollAreaRef.current.querySelector(
-            "[data-radix-scroll-area-viewport]"
-        );
-        if (!scrollContainer) return false;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainer
+    return Math.abs(scrollTop + clientHeight - scrollHeight) < 312
+  }
 
-        const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-        return Math.abs(scrollTop + clientHeight - scrollHeight) < 312;
-    };
+  const handleScroll = () => {
+    const atBottom = isAtBottom()
+    setShowScrollButton(!atBottom)
+    if (atBottom) {
+      setNewMessageCount(0)
+    }
+  }
 
-    useEffect(() => {
-        if (socket) {
-            socket.onmessage = async (event) => {
-                const data = JSON.parse(event.data);
-                console.log(data);
-                if (data.response_type === "host_dismiss_room") {
-                    router.push("/");
-                } else if (data.response_type === "join_participant") {
-                    setMembers((prevMembers) => ({
-                        ...prevMembers,
-                        [data.participant.participant_id]: data.participant,
-                    }));
-                } else if (data.response_type === "leave_participant") {
-                    setMembers((prevMembers) => {
-                        const {
-                            [data.participant.participant_id]: _,
-                            ...rest
-                        } = prevMembers;
-                        return rest;
-                    });
-                } else if (data.response_type === "new_message") {
+  useEffect(() => {
+    if (socket) {
+      socket.onmessage = async (event) => {
+        const data = JSON.parse(event.data)
+        console.log(data)
+        if (data.response_type === "host_dismiss_room") {
+          router.push("/")
+        } else if (data.response_type === "join_participant") {
+          setMembers((prevMembers) => ({
+            ...prevMembers,
+            [data.participant.participant_id]: data.participant,
+          }))
+        } else if (data.response_type === "leave_participant") {
+          setMembers((prevMembers) => {
+            const { [data.participant.participant_id]: _, ...rest } = prevMembers
+            return rest
+          })
+        } else if (data.response_type === "new_message") {
+          // get room data from local storage
+          // we already have the room data in roomLocalData but this data is not updated when the room data is updated
+          // so we need to get the room data as soon as the user sends a message
+          const roomData = JSON.parse(localStorage.getItem(`${roomCode}`) || "{}")
+          setRoomLocalData(roomData)
 
-                    // get room data from local storage
-                    // we already have the room data in roomLocalData but this data is not updated when the room data is updated
-                    // so we need to get the room data as soon as the user sends a message
-                    const roomData = JSON.parse(localStorage.getItem(`${roomCode}`) || '{}');
-                    setRoomLocalData(roomData);
+          const groupKey = await importGroupKey(roomData?.group_key)
+          const decryptedMessage = await decryptMessage(data.message_text.ciphertext, data.message_text.iv, groupKey)
 
-                    const groupKey = await importGroupKey(roomData?.group_key);
-                    const decryptedMessage = await decryptMessage(data.message_text.ciphertext, data.message_text.iv, groupKey);
-
-                    if (data.sender.id !== roomLocalData?.participant_id) {
-                        setMessages((prevMessages) => [
-                            ...prevMessages,
-                            {
-                                ...data,
-                                message_text: decryptedMessage,
-                                created_at: new Date(
-                                    data.created_at
-                                ).toLocaleTimeString("en-US", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                }),
-                            },
-                        ]);
-                        if (isAtBottom()) {
-                            setTimeout(scrollToBottom, 10);
-                        }
-                    } else {
-                        setMessages((prevMessages) =>
-                            prevMessages.map((message) =>
-                                message.id === data.message_tmp_id
-                                    ? {
-                                          ...message,
-                                          id: data.id,
-                                          status: data.status,
-                                      }
-                                    : message
-                            )
-                        );
-                        setTimeout(scrollToBottom, 30);
-                    }
-                } else if (
-                    data.response_type ===
-                    "new_participant_join_notification_to_host"
-                ) {
-                    const rsaPublicKey = await importPublicKey(
-                        data.participant.rsa_public_key
-                    );
-                    const groupKey = await importGroupKey(roomData.group_key);
-                    const encryptedGroupKey = await encryptGroupKey(
-                        groupKey,
-                        rsaPublicKey
-                    );
-
-                    setTimeout(() => {
-                        socket.send(
-                            JSON.stringify({
-                                command: "send_group_key",
-                                room_code: roomCode,
-                                participant_id: data.participant.participant_id,
-                                group_key: encryptedGroupKey,
-                            })
-                        );
-                    }, 1000);
-                } else if (data.response_type === "group_msg_encryption_key") {
-                    // Encrypted group key is sent to the participant by host when the participant joins the room
-                    const rasPublicKey = await importPrivateKey(
-                        roomData.rsa_key_pair.privateKey
-                    );
-                    const decryptedGroupKey = await decryptGroupKey(
-                        data.group_key,
-                        rasPublicKey
-                    );
-
-                    roomData["group_key"] = await exportGroupKey(
-                        decryptedGroupKey
-                    );
-                    
-                    localStorage.setItem(
-                        `${roomCode}`,
-                        JSON.stringify(roomData)
-                    );
-
-                    // fetch the messages from the server
-                    fetchMessages();
-                }
-            };
-        }
-    }, [socket, roomLocalData, router, setMembers, setMessages]);
-
-    const scrollToBottom = () => {
-        if (scrollAreaRef.current) {
-            const scrollContainer = scrollAreaRef.current.querySelector(
-                "[data-radix-scroll-area-viewport]"
-            );
-            if (scrollContainer) {
-                scrollContainer.scrollTo({
-                    top: scrollContainer.scrollHeight,
-                    behavior: "smooth",
-                });
+          if (data.sender.id !== roomLocalData?.participant_id) {
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              {
+                ...data,
+                message_text: decryptedMessage,
+                created_at: new Date(data.created_at).toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+              },
+            ])
+            if (!isAtBottom()) {
+              setNewMessageCount((prev) => prev + 1)
+            } else {
+              setTimeout(scrollToBottom, 10)
             }
+          } else {
+            setMessages((prevMessages) =>
+              prevMessages.map((message) =>
+                message.id === data.message_tmp_id
+                  ? {
+                      ...message,
+                      id: data.id,
+                      status: data.status,
+                    }
+                  : message,
+              ),
+            )
+            setTimeout(scrollToBottom, 30)
+          }
+        } else if (data.response_type === "new_participant_join_notification_to_host") {
+          const rsaPublicKey = await importPublicKey(data.participant.rsa_public_key)
+          const groupKey = await importGroupKey(roomData.group_key)
+          const encryptedGroupKey = await encryptGroupKey(groupKey, rsaPublicKey)
+
+          setTimeout(() => {
+            socket.send(
+              JSON.stringify({
+                command: "send_group_key",
+                room_code: roomCode,
+                participant_id: data.participant.participant_id,
+                group_key: encryptedGroupKey,
+              }),
+            )
+          }, 1000)
+        } else if (data.response_type === "group_msg_encryption_key") {
+          // Encrypted group key is sent to the participant by host when the participant joins the room
+          const rasPublicKey = await importPrivateKey(roomData.rsa_key_pair.privateKey)
+          const decryptedGroupKey = await decryptGroupKey(data.group_key, rasPublicKey)
+
+          roomData["group_key"] = await exportGroupKey(decryptedGroupKey)
+
+          localStorage.setItem(`${roomCode}`, JSON.stringify(roomData))
+
+          // fetch the messages from the server
+          fetchMessages()
         }
-    };
+      }
+    }
+  }, [socket, roomLocalData, router, setMembers, setMessages])
 
-    useEffect(() => {
-        if (messages.length > 0 && isInitialLoad) {
-            scrollToBottom();
-            setIsInitialLoad(false);
-        }
-    }, [messages, isInitialLoad]);
+  const scrollToBottom = () => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
+      if (scrollContainer) {
+        scrollContainer.scrollTo({
+          top: scrollContainer.scrollHeight,
+          behavior: "smooth",
+        })
+      }
+    }
+  }
 
-    const fetchMessages = async () => {
-        const roomData = JSON.parse(localStorage.getItem(`${roomCode}`) || '{}');
-        if(!roomData?.group_key) {
-            return;
-        }
-        const groupKey = await importGroupKey(roomData?.group_key);
+  useEffect(() => {
+    if (messages.length > 0 && isInitialLoad) {
+      scrollToBottom()
+      setIsInitialLoad(false)
+    }
+  }, [messages, isInitialLoad])
 
-        try {
-            const response = await fetch(
-                `${
-                    process.env.NEXT_PUBLIC_API_URL
-                }/chat-api/room-messages/${roomCode}/?timezone=${
-                    Intl.DateTimeFormat().resolvedOptions().timeZone
-                }`
-            );
-            const data = await response.json();
+  const fetchMessages = async () => {
+    const roomData = JSON.parse(localStorage.getItem(`${roomCode}`) || "{}")
+    if (!roomData?.group_key) {
+      return
+    }
+    const groupKey = await importGroupKey(roomData?.group_key)
 
-            // decrypt the messages
-            const decryptedMessages = await Promise.all(data.map(async (msg) => {
-                let message = JSON.parse(msg.message_text.replace(/'/g, '"'));
-                const decryptedMessage = await decryptMessage(message.ciphertext, message.iv, groupKey);
-                return { ...msg, message_text: decryptedMessage };
-            }));
-            setMessages(decryptedMessages);
-        } catch (error) {
-            console.error("Error fetching messages:", error);
-        }
-    };
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/chat-api/room-messages/${roomCode}/?timezone=${
+          Intl.DateTimeFormat().resolvedOptions().timeZone
+        }`,
+      )
+      const data = await response.json()
 
-    useEffect(() => {
-        fetchMessages();
-    }, [roomCode]);
+      // decrypt the messages
+      const decryptedMessages = await Promise.all(
+        data.map(async (msg) => {
+          const message = JSON.parse(msg.message_text.replace(/'/g, '"'))
+          const decryptedMessage = await decryptMessage(message.ciphertext, message.iv, groupKey)
+          return { ...msg, message_text: decryptedMessage }
+        }),
+      )
+      setMessages(decryptedMessages)
+    } catch (error) {
+      console.error("Error fetching messages:", error)
+    }
+  }
 
-    const copyMessageToClipboard = (messageId, messageText) => {
-        navigator.clipboard.writeText(messageText).then(() => {
-            setCopiedMessageId(messageId);
-            setTimeout(() => setCopiedMessageId(null), 2000);
-        });
-    };
+  useEffect(() => {
+    fetchMessages()
+  }, [roomCode])
 
-    return (
-        <ScrollArea
-            className="flex-grow px-8 py-1 bg-gradient-to-b from-purple-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 h-[calc(100vh-200px)]"
-            ref={scrollAreaRef}
+  const copyMessageToClipboard = (messageId, messageText) => {
+    navigator.clipboard.writeText(messageText).then(() => {
+      setCopiedMessageId(messageId)
+      setTimeout(() => setCopiedMessageId(null), 2000)
+    })
+  }
+
+  useEffect(() => {
+    const scrollContainer = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]")
+    if (scrollContainer) {
+      scrollContainer.addEventListener("scroll", handleScroll)
+    }
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener("scroll", handleScroll)
+      }
+    }
+  }, [])
+
+  return (
+    <>
+      <ScrollArea
+        className="flex-grow px-8 py-1 bg-gradient-to-b from-purple-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 h-[calc(100vh-200px)]"
+        ref={scrollAreaRef}
+      >
+        {messages.length === 0 && (
+          <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center justify-center h-full"
         >
-            {messages.length === 0 && (
-                <motion.p
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center text-gray-500 dark:text-gray-400 mt-10"
-                >
-                    No messages yet. Start the conversation!
-                </motion.p>
-            )}
-            <AnimatePresence>
-                {messages?.map((message) => (
-                    <div
-                        key={message.id}
-                        className={`mb-3 p-3 rounded-lg ${
-                            message.sender.id === roomLocalData?.participant_id
-                                ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white ml-auto"
-                                : "bg-white dark:bg-gray-700 shadow-md"
-                        } max-w-[80%] break-words relative`}
-                        onMouseEnter={() => setHoveredMessageId(message.id)}
-                        onMouseLeave={() => setHoveredMessageId(null)}
+          <MessageSquare className="w-16 h-16 text-purple-600 mb-4" />
+          <p className="text-center text-gray-500 dark:text-gray-400 text-lg font-medium">No messages yet.</p>
+          <p className="text-center text-gray-400 dark:text-gray-500 mt-2">Be the first to start the conversation!</p>
+        </motion.div>
+        )}
+        <AnimatePresence>
+          {messages?.map((message) => (
+            <div
+              key={message.id}
+              className={`mb-3 p-3 rounded-lg ${
+                message.sender.id === roomLocalData?.participant_id
+                  ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white ml-auto"
+                  : "bg-white dark:bg-gray-700 shadow-md"
+              } max-w-[80%] break-words relative`}
+              onMouseEnter={() => setHoveredMessageId(message.id)}
+              onMouseLeave={() => setHoveredMessageId(null)}
+            >
+              <div className="flex items-start">
+                <Avatar className="h-8 w-8 mr-2 ring-2 ring-white dark:ring-gray-800">
+                  <AvatarImage src={`https://api.dicebear.com/6.x/initials/svg?seed=${message.sender.nickname}`} />
+                  <AvatarFallback>{message.sender.nickname.slice(0, 2)}</AvatarFallback>
+                </Avatar>
+                <div className="flex-grow">
+                  <div className="flex justify-between items-center">
+                    <p
+                      className={`font-bold ${
+                        message.sender.id === roomLocalData?.participant_id
+                          ? "text-white"
+                          : "text-purple-600 dark:text-purple-400"
+                      }`}
                     >
-                        <div className="flex items-start">
-                            <Avatar className="h-8 w-8 mr-2 ring-2 ring-white dark:ring-gray-800">
-                                <AvatarImage
-                                    src={`https://api.dicebear.com/6.x/initials/svg?seed=${message.sender.nickname}`}
-                                />
-                                <AvatarFallback>
-                                    {message.sender.nickname.slice(0, 2)}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-grow">
-                                <div className="flex justify-between items-center">
-                                    <p
-                                        className={`font-bold ${
-                                            message.sender.id ===
-                                            roomLocalData?.participant_id
-                                                ? "text-white"
-                                                : "text-purple-600 dark:text-purple-400"
-                                        }`}
-                                    >
-                                        {message.sender.nickname}
-                                        {message.sender.role === "host" && (
-                                            <span className="ml-1 text-xs bg-yellow-400 text-gray-800 px-1 rounded">
-                                                Host
-                                            </span>
-                                        )}
-                                    </p>
-                                </div>
-                                <p
-                                    className={
-                                        message.sender.id ===
-                                        roomLocalData?.participant_id
-                                            ? "text-white"
-                                            : "text-gray-800 dark:text-gray-200"
-                                    }
-                                >
-                                    <span
-                                        dangerouslySetInnerHTML={{
-                                            __html: DOMPurify.sanitize(
-                                                (
-                                                    message?.message_text || ""
-                                                ).replace(/\n/g, "<br>")
-                                            ),
-                                        }}
-                                    />
-                                </p>
-                                <div className="flex justify-between items-center mt-1">
-                                    <div className="flex items-center space-x-2">
-                                        <p
-                                            className={`text-xs ${
-                                                message.sender.id ===
-                                                roomLocalData?.participant_id
-                                                    ? "text-white/80"
-                                                    : "text-gray-500 dark:text-gray-400"
-                                            }`}
-                                        >
-                                            {message?.created_at}
-                                        </p>
-                                        {message.sender.id ===
-                                            roomLocalData?.participant_id && (
-                                            <span className="text-xs">
-                                                {message.status ===
-                                                "delivered" ? (
-                                                    <Check className="w-4 h-4 text-green-200" />
-                                                ) : (
-                                                    <Clock className="w-4 h-4 text-yellow-200" />
-                                                )}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {hoveredMessageId === message.id && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.8 }}
-                                className="absolute bottom-2 right-2 flex space-x-1"
-                            >
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() =>
-                                                    copyMessageToClipboard(
-                                                        message.id,
-                                                        message.message_text
-                                                    )
-                                                }
-                                                className={`p-1 ${
-                                                    message.sender.id ===
-                                                    roomLocalData?.participant_id
-                                                        ? "hover:bg-white/10 text-white"
-                                                        : "hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300"
-                                                }`}
-                                            >
-                                                {copiedMessageId ===
-                                                message.id ? (
-                                                    <Check className="h-4 w-4" />
-                                                ) : (
-                                                    <Copy className="h-4 w-4" />
-                                                )}
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>
-                                                {copiedMessageId === message.id
-                                                    ? "Copied!"
-                                                    : "Copy message"}
-                                            </p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            </motion.div>
-                        )}
+                      {message.sender.nickname}
+                      {message.sender.role === "host" && (
+                        <span className="ml-1 text-xs bg-yellow-400 text-gray-800 px-1 rounded">Host</span>
+                      )}
+                    </p>
+                  </div>
+                  <p
+                    className={
+                      message.sender.id === roomLocalData?.participant_id
+                        ? "text-white"
+                        : "text-gray-800 dark:text-gray-200"
+                    }
+                  >
+                    <span
+                      dangerouslySetInnerHTML={{
+                        __html: DOMPurify.sanitize((message?.message_text || "").replace(/\n/g, "<br>")),
+                      }}
+                    />
+                  </p>
+                  <div className="flex justify-between items-center mt-1">
+                    <div className="flex items-center space-x-2">
+                      <p
+                        className={`text-xs ${
+                          message.sender.id === roomLocalData?.participant_id
+                            ? "text-white/80"
+                            : "text-gray-500 dark:text-gray-400"
+                        }`}
+                      >
+                        {message?.created_at}
+                      </p>
+                      {message.sender.id === roomLocalData?.participant_id && (
+                        <span className="text-xs">
+                          {message.status === "delivered" ? (
+                            <Check className="w-4 h-4 text-green-200" />
+                          ) : (
+                            <Clock className="w-4 h-4 text-yellow-200" />
+                          )}
+                        </span>
+                      )}
                     </div>
-                ))}
-            </AnimatePresence>
-        </ScrollArea>
-    );
+                  </div>
+                </div>
+              </div>
+              {hoveredMessageId === message.id && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="absolute bottom-2 right-2 flex space-x-1"
+                >
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyMessageToClipboard(message.id, message.message_text)}
+                          className={`p-1 ${
+                            message.sender.id === roomLocalData?.participant_id
+                              ? "hover:bg-white/10 text-white"
+                              : "hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300"
+                          }`}
+                        >
+                          {copiedMessageId === message.id ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{copiedMessageId === message.id ? "Copied!" : "Copy message"}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </motion.div>
+              )}
+            </div>
+          ))}
+        </AnimatePresence>
+      </ScrollArea>
+      <AnimatePresence>
+        {showScrollButton && (
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.3 }}
+            className="absolute bottom-32 right-4 bg-blue-500 text-white rounded-full p-3 shadow-lg hover:bg-blue-600 transition-colors duration-300 flex items-center justify-center"
+            onClick={scrollToBottom}
+          >
+            <ChevronDown className="h-5 w-5" />
+            {newMessageCount > 0 && (
+              <span className="absolute -top-2 -right-2 text-xs font-semibold bg-red-500 rounded-full px-2 py-1 border-2 border-white">
+                {newMessageCount}
+              </span>
+            )}
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </>
+  )
 }
+
